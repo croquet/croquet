@@ -281,13 +281,10 @@ const DISPATCHER_BUCKET = NO_DISPATCHER ? null
 // pointer to latest persistent data is stored in user buckets
 // direct bucket access (instead of going via load-balancer as clients do)
 // avoids CDN caching
-const EU_BUCKET = GCP_PROJECT === 'croquet-proj' ? 'files.eu.croquet.io' : `files.eu.${GCP_PROJECT}.croquet.dev`;
-const JP_BUCKET = GCP_PROJECT === 'croquet-proj' ? 'files.jp.croquet.io' : `files.jp.${GCP_PROJECT}.croquet.dev`;
-const US_BUCKET = GCP_PROJECT === 'croquet-proj' ? 'files.us.croquet.io' : `files.us.${GCP_PROJECT}.croquet.dev`;
 const FILE_BUCKETS = {
-    eu: STORE_PERSISTENT_DATA ? storage.bucket(EU_BUCKET) : null,
-    jp: STORE_PERSISTENT_DATA ? storage.bucket(JP_BUCKET) : null,
-    us: STORE_PERSISTENT_DATA ? storage.bucket(US_BUCKET) : null,
+    eu: STORE_PERSISTENT_DATA ? storage.bucket('files.eu.croquet.io') : null,
+    jp: STORE_PERSISTENT_DATA ? storage.bucket('files.jp.croquet.io') : null,
+    us: STORE_PERSISTENT_DATA ? storage.bucket('files.us.croquet.io') : null,
 };
 FILE_BUCKETS.default = FILE_BUCKETS.us;
 
@@ -3910,9 +3907,7 @@ async function verifyToken(token) {
 }
 
 
-const PROD_SIGN_SERVER = "https://api.croquet.io/sign";
-const DEV_SIGN_SERVER = `https://api.${GCP_PROJECT}.croquet.dev/sign`;
-const API_SERVER_URL = GCP_PROJECT === 'croquet-proj' ? PROD_SIGN_SERVER : DEV_SIGN_SERVER;
+const API_SERVER_URL = "https://api.croquet.io/sign";
 
 async function verifyApiKey(apiKey, url, appId, persistentId, id, sdk, client, unverifiedDeveloperId) {
     // VERIFY_TOKEN is always false on DePIN

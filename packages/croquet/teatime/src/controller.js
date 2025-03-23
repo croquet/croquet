@@ -44,14 +44,13 @@ else console.log("%cCroquet%c %c" + CROQUET_VERSION, "color:#F0493E", "color:inh
 // comment out once deployed to production reflectors)
 // if (!("dev" in urlOptions) && (CROQUET_VERSION === "<unknown>" || CROQUET_VERSION.includes('-'))) urlOptions.dev = true;
 
-// dev or staging reflectors are used for pages served from dev or staging
+// dev reflectors are used for pages served from /dev
 // everything else uses api.croquet.io/reflector/v1
-// ...unless overridden by a "backend" url option, which uses api.${backend}.croquet.dev
+// ...unless overridden by a "backend" url option
 // ...unless overridden by a "reflector=<url|region>" url option, which sets the specified url or region
 
 const appOnCroquetIo = !NODE && !!window.location.hostname.match(/^(.*\.)?croquet\.io$/i);
 const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith("/dev/");
-const appOnCroquetDev = !NODE && !!window.location.hostname.match(/^(.*\.)?croquet\.dev$/i);
 
 const CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/";
 const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
@@ -68,7 +67,7 @@ function initDEBUG() {
     // TODO: turn this into a reasonable API
     // enable some opts by default via dev flag or being on localhost-equivalent
     const devOrLocal = urlOptions.dev || (urlOptions.dev !== false && "localhost");
-    const devOrCroquetIoDev = urlOptions.dev || (urlOptions.dev !== false && (appOnCroquetIoDev || appOnCroquetDev));
+    const devOrCroquetIoDev = urlOptions.dev || (urlOptions.dev !== false && appOnCroquetIoDev);
     DEBUG = {
         messages: urlOptions.has("debug", "messages", false),               // received messages
         sends: urlOptions.has("debug", "sends", false),                     // sent messages
@@ -544,27 +543,10 @@ export default class Controller {
             reflector: "depin", // unused
         };
 
-        // go off the hostname for dev and staging
-        if (!backend && !NODE) switch (window.location.hostname) {
-            case "croquet.dev": backend = "dev"; break;
-            case "staging.croquet.io": backend = "staging"; break;
-            /* no default */
-        }
-
-        // map backend to api domain
-        let apidomain;
-        switch (backend) {
-            case "":
-            case "prod": apidomain = "croquet.io"; break;
-            case "staging": apidomain = "staging.croquet.io"; break;
-            case "dev": apidomain = "croquet.dev"; break;
-            default: apidomain = `${backend}.croquet.dev`; break;
-        }
-
-        const reflector = overridden ? "overridden" : `wss://api.${apidomain}/reflector/v${VERSION}`;
+        const reflector = overridden ? "overridden" : `wss://api.croquet.io/reflector/v${VERSION}`;
         return {
             apiKey,
-            signServer: `https://api.${apidomain}/sign`,    // sign server generates file upload/download urls
+            signServer: `https://api.croquet.io/sign`,    // sign server generates file upload/download urls
             reflector
         };
     }
