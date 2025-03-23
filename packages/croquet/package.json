@@ -33,8 +33,11 @@
     "README.md",
     "LICENSE.md",
     "cjs/croquet-croquet.js",
+    "cjs/croquet-croquet.js.map",
     "cjs/croquet-croquet-node.js",
+    "cjs/croquet-croquet-node.js.map",
     "pub/croquet.min.js",
+    "pub/croquet.min.js.map",
     "types.d.ts"
   ],
   "scripts": {
@@ -50,18 +53,10 @@
     "build-prod": "npm run build-prod-pub && npm run build-prod-cjs && npm run build-prod-node",
     "build-prod-pub": "rollup -c --environment NODE_ENV:production,BUILD_TARGET:pub",
     "build-prod-cjs": "rollup -c --environment NODE_ENV:production,BUILD_TARGET:cjs",
-    "build-prod-node": "rollup -c --environment NODE_ENV:production,CROQUET_PLATFORM:node",
-    "prepublishOnly": "npm run clean ; sed -i '' 's,//# sourceMappingURL.*,,' cjs/*.js pub/*.js",
-    "postpublish": "npm run clean",
-    "clean": "rm -f cjs/* pub/* ; git checkout cjs/ pub/ package-lock.json ; npm ci"
+    "build-prod-node": "rollup -c --environment NODE_ENV:production,CROQUET_PLATFORM:node"
   },
   "watch": {
     "build-dev": {
-      "patterns": [
-        ".",
-        "../../../teatime",
-        "../../../math"
-      ],
       "ignore": [
         "./cjs",
         "./pub"
@@ -70,11 +65,6 @@
       "quiet": false
     },
     "build-dev-pub": {
-      "patterns": [
-        ".",
-        "../../../teatime",
-        "../../../math"
-      ],
       "ignore": [
         "./cjs",
         "./pub"
@@ -83,11 +73,6 @@
       "quiet": false
     },
     "build-dev-cjs": {
-      "patterns": [
-        ".",
-        "../../../teatime",
-        "../../../math"
-      ],
       "ignore": [
         "./cjs",
         "./pub"
@@ -96,11 +81,6 @@
       "quiet": false
     },
     "build-dev-node": {
-      "patterns": [
-        ".",
-        "../../../teatime",
-        "../../../math"
-      ],
       "ignore": [
         "./cjs",
         "./pub"

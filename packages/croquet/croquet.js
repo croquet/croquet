@@ -1,6 +1,6 @@
 import {
     Model, View, Session, Data, Constants, App, Messenger
-} from "../../../teatime";
+} from "./teatime";
 
 export {
     Model, View, Session, Data, Constants, App, Messenger

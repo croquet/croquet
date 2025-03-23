@@ -94,7 +94,14 @@ function fixups() {
     };
 }
 
-const deps = ["../../../teatime", "../../../math"];
+// We need a unique version string for each single build because this gets hashed
+// into the Session ID instead of the whole library source code.
+// The version string is derived from the package.json version and the git commit.
+// release: x.y.z
+// prerelease: x.y.z-v
+// clean tree: x.y.z-v+branch.commit
+// otherwise: x.y.z-v+branch.commit.user.date
+const deps = ["./teatime", "./math"];
 const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
 const git_commit = execSync("git rev-parse HEAD").toString().trim();                          // last commit hash
 const git_message = execSync("git show --format='%s' -s " + git_commit).toString().trim();    // last commit message
@@ -123,19 +130,19 @@ const outputs = {
         file: 'pub/croquet.min.js',
         format: 'iife',
         name: 'Croquet',
-        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
+        sourcemap: true,
     },
     // commonjs build for bundlers (does not include dependencies)
     cjs: {
         file: 'cjs/croquet-croquet.js',
         format: 'cjs',
-        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
+        sourcemap: true,
     },
     // node build (does not include dependencies)
     node: {
         file: 'cjs/croquet-croquet-node.js',
         format: 'cjs',
-        sourcemap: true,    // not included in npm bundle by explicit "files" section in package.json
+        sourcemap: true,
     },
 };
 

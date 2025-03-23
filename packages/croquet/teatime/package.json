@@ -4,7 +4,7 @@
   "description": "The core client-side protocol for Croquet",
   "main": "index.js",
   "author": "Croquet Corp",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "comment": "=== the dependencies here are bundled into the npm package, mostly for the upload worker ===",
   "dependencies": {
     "@croquet/math": "file:../math",

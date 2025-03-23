@@ -4,11 +4,12 @@
   "description": "Node example",
   "main": "hello_node.js",
   "scripts": {
+    "start": "node hello_node.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Croquet Corporation",
   "license": "ISC",
   "dependencies": {
-    "@croquet/croquet": "^1.1.0"
+    "@croquet/croquet": "^2.0.0-0"
   }
 }

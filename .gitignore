@@ -4,6 +4,9 @@
 build
 dist
 node_modules
+# Croquet npm
+/packages/croquet/cjs
+/packages/croquet/pub
 # VSCode
 .vscode
 *.code-workspace
