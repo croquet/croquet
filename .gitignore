@@ -7,6 +7,8 @@ node_modules
 # Croquet npm
 /packages/croquet/cjs
 /packages/croquet/pub
+# Croquet-in-a-Box
+/server/croquet-in-a-box/_files
 # VSCode
 .vscode
 *.code-workspace

@@ -21,6 +21,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - $WEB_ROOT_PATH:/var/croquet-in-a-box/web:ro
+      - $FILES_ROOT_PATH:/var/tmp/croquet-in-a-box/files
     depends_on:
       - reflector
     networks:

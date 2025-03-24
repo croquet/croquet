@@ -1,7 +1,8 @@
 #!/bin/bash
-# usage: ./croquet-in-a-box.sh [port] [web-root-path]
+# usage: ./croquet-in-a-box.sh [port] [web-root-path] [files-root-path]
 #   port:          port to listen on (default: 8888)
 #   web-root-path: path to website root (default: website/_site)
+#   files-root-path: path to files root (default: ./_files)
 
 cd $(dirname "$0")
 TOP=../..
@@ -9,6 +10,7 @@ TOP=../..
 # these are used inside docker-compose.yml
 export HOST_PORT=${1:-8888}
 export WEB_ROOT_PATH=${2:-$TOP/website/_site}
+export FILES_ROOT_PATH=${3:-./_files}
 export REFLECTOR_LABEL=`hostname`
 
 # used in Dockerfile below
@@ -22,12 +24,13 @@ if [[ -z "$HOST_IP" ]] ; then
     HOST_IP=localhost
 fi
 
-echo "web server:   http://$HOST_IP:$HOST_PORT          (serving $WEB_ROOT_PATH)"
-echo "file server:  http://$HOST_IP:$HOST_PORT/files"
+echo "web server:   http://$HOST_IP:$HOST_PORT           (serving $WEB_ROOT_PATH)"
+echo "file server:  http://$HOST_IP:$HOST_PORT/files     (writing $FILES_ROOT_PATH)"
 echo "reflector:    http://$HOST_IP:$HOST_PORT/reflector"
 echo
 echo "example: http://$HOST_IP:$HOST_PORT/multiblaster/?box=/"
 echo "         where ?box=/ is a shortcut for ?reflector=/reflector&files=/files"
+echo "         which resolve to the full URLs above"
 echo
 
 rm -rf build
