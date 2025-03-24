@@ -1,12 +1,14 @@
 #!/bin/bash
-# usage: ./croquet-in-a-box.sh [port]
+# usage: ./croquet-in-a-box.sh [port] [web-root-path]
+#   port:          port to listen on (default: 8888)
+#   web-root-path: path to website root (default: website/_site)
 
 cd $(dirname "$0")
-TOP=$(git rev-parse --show-toplevel)
+TOP=../..
 
 # these are used inside docker-compose.yml
 export HOST_PORT=${1:-8888}
-export WEB_ROOT_PATH=$TOP/website
+export WEB_ROOT_PATH=${2:-$TOP/website/_site}
 export REFLECTOR_LABEL=`hostname`
 
 # used in Dockerfile below
@@ -20,13 +22,13 @@ if [[ -z "$HOST_IP" ]] ; then
     HOST_IP=localhost
 fi
 
-echo "web: http://$HOST_IP:$HOST_PORT"
-echo "files: http://$HOST_IP:$HOST_PORT/files"
-echo "reflector: http://$HOST_IP:$HOST_PORT/reflector"
+echo "web server:   http://$HOST_IP:$HOST_PORT          (serving $WEB_ROOT_PATH)"
+echo "file server:  http://$HOST_IP:$HOST_PORT/files"
+echo "reflector:    http://$HOST_IP:$HOST_PORT/reflector"
 echo
-echo "example: http://$HOST_IP:$HOST_PORT/multiblaster/?reflector=ws://$HOST_IP:$HOST_PORT/reflector&files=http://$HOST_IP:$HOST_PORT/files"
+echo "example: http://$HOST_IP:$HOST_PORT/multiblaster/?box=/"
+echo "         where ?box=/ is a shortcut for ?reflector=/reflector&files=/files"
 echo
-echo "Starting croquet-in-a-box: when you see 'starting WebSocketServer' below we're up and running"
 
 rm -rf build
 cp -a $REFLECTOR_PATH build

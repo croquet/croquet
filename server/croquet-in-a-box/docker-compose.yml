@@ -12,26 +12,17 @@ services:
     networks:
       - croquet-network
 
-  fileserver:
+  nginx:
     image: nginx:mainline-alpine
-    container_name: fileserver
-    restart: unless-stopped
-    volumes:
-      - ./nginx-fileserver.conf:/etc/nginx/nginx.conf:ro
-    networks:
-      - croquet-network
-  webserver:
-    image: nginx:mainline-alpine
-    container_name: webserver
+    container_name: web-and-files
     restart: unless-stopped
     ports:
       - $HOST_PORT:80
     volumes:
-      - ./nginx-webserver.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - $WEB_ROOT_PATH:/var/croquet-in-a-box/web:ro
     depends_on:
       - reflector
-      - fileserver
     networks:
       - croquet-network
 
