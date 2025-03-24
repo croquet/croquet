@@ -2,7 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.2.0";
+const SYNCH_VERSION = "2.2.0"; // should match package.json
 
 const os = require('node:os');
 const fs = require('node:fs');
@@ -420,6 +420,10 @@ async function startServerForDePIN() {
     // problems.
     let iceServers;
     async function fetchOpenRelayServers() {
+        if (!process.env.ICE_SERVERS_URL) {
+            global_logger.warn({ event: "no-ice-servers" }, `ICE_SERVERS_URL not set`);
+            return;
+        }
         // in case of error, indefinitely retry with a 1-minute pause.
         let foundServers = false;
         const tryOnce = async () => {
@@ -475,7 +479,7 @@ async function startServerForDePIN() {
     const fetchLimiter = new Promise(resolve => setTimeout(resolve, ICE_SERVER_FETCH_LIMIT));
     await Promise.race([fetchOpenRelayServers(), fetchLimiter]);
     if (!iceServers) {
-        global_logger.warn({ event: "ice-servers-fallback" }, `ICE server list delayed; proceeding with fallback STUN server`);
+        global_logger.warn({ event: "ice-servers-fallback" }, `proceeding with fallback STUN server`);
         iceServers = ['stun:stun.l.google.com:19302'];
     }
 
@@ -483,7 +487,13 @@ async function startServerForDePIN() {
     // also see https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/lib/index.d.ts
 
     // eslint-disable-next-line import/no-unresolved
-    const nodeDataChannel = await import('node-datachannel'); // can't (and in fact don't want to) use static require()
+    let nodeDataChannel;
+    try {
+        nodeDataChannel = await import('node-datachannel'); // can't (and in fact don't want to) use static require()
+    } catch (err) {
+        global_logger.error({ event: "node-datachannel-not-found" }, `${err.message || err} - did you install optional dependencies?`);
+        process.exit(EXIT.FATAL);
+    }
     nodeDataChannel.initLogger('Error'); // 'Verbose' | 'Debug' | 'Info' | 'Warning' | 'Error' | 'Fatal';
     nodeDataChannel.preload();
 
