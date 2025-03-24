@@ -1,7 +1,7 @@
 #!/bin/bash
 # usage: ./croquet-in-a-box.sh [port] [web-root-path] [files-root-path]
 #   port:          port to listen on (default: 8888)
-#   web-root-path: path to website root (default: website/_site)
+#   web-root-path: path to website root (default: ./webroot)
 #   files-root-path: path to files root (default: ./_files)
 
 cd $(dirname "$0")
@@ -9,7 +9,7 @@ TOP=../..
 
 # these are used inside docker-compose.yml
 export HOST_PORT=${1:-8888}
-export WEB_ROOT_PATH=${2:-$TOP/website/_site}
+export WEB_ROOT_PATH=${2:-./webroot}
 export FILES_ROOT_PATH=${3:-./_files}
 export REFLECTOR_LABEL=`hostname`
 
