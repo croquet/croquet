@@ -527,7 +527,7 @@ export default class Controller {
         for (const key of apiKeysWithBackend.split(",")) {
             const split = key.lastIndexOf(':');
             const version = key[split === -1 ? 0 : split+1]; // 1: croquet.io, 2: multisynq.io
-            if (!version.match(/^[12]$/)) throw Error(`Invalid API key version`);
+            if (!version?.match(/^[12]$/)) throw Error("Invalid API key: " + key);
             if (version in keys) throw Error(`Duplicate API key versions`);
             keys[version] = {
                 key: split === -1 ? key : key.slice(split + 1),
