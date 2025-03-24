@@ -914,7 +914,7 @@ declare module "@croquet/croquet" {
     type ClassOf<M> = new (...args: any[]) => M;
 
     export type CroquetSessionParameters<M extends Model, V extends View, T> = {
-        apiKey: string,
+        apiKey?: string,
         appId: string,
         name?: string|Promise<string>,
         password?: string|Promise<string>,
@@ -929,6 +929,9 @@ declare module "@croquet/croquet" {
         autoSleep?: number|boolean,
         rejoinLimit?: number,
         eventRateLimit?: number,
+        reflector?: string,
+        files?: string,
+        box?: string,
         debug?: CroquetDebugOption | Array<CroquetDebugOption>
     }
 

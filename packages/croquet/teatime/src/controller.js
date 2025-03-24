@@ -61,8 +61,8 @@ export const OLD_DATA_SERVER = OLD_DOWNLOAD_SERVER;
 
 let DEBUG = null;
 
-function initDEBUG() {
-    // to capture whatever was passed to th latest Session.join({debug:...})
+function initOptions() {
+    // to capture whatever was passed to the latest Session.join({debug:...})
     // call we simply redo this every time establishSession() is called
     // TODO: turn this into a reasonable API
     // enable some opts by default via dev flag or being on localhost-equivalent
@@ -82,6 +82,12 @@ function initDEBUG() {
         offline: urlOptions.has("debug", "offline", false),                 // short-circuit all requests
     };
     if (DEBUG.offline) App.showMessage("Croquet: offline mode enabled, no multiuser", { level: "warning"});
+    if (urlOptions.box) {
+        let url = new URL(urlOptions.box, window.location).href;
+        if (!url.endsWith("/")) url += "/";
+        urlOptions.reflector = url + "reflector";
+        urlOptions.files = url + "files";
+    }
 }
 
 /*
@@ -252,7 +258,7 @@ export function sessionController(sessionId) {
 export default class Controller {
 
     constructor() {
-        initDEBUG();
+        initOptions();
         this.reset();
     }
 
@@ -509,6 +515,14 @@ export default class Controller {
     }
 
     getBackend(apiKeysWithBackend) {
+        if (urlOptions.box || urlOptions.reflector) { // box is croquet-in-a-box, see session.js
+            return {
+                apiKey: "none",
+                signServer: "none",
+                reflector: urlOptions.reflector,
+            }
+        }
+
         const keys = {};
         for (const key of apiKeysWithBackend.split(",")) {
             const split = key.lastIndexOf(':');

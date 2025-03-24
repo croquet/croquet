@@ -87,10 +87,10 @@ export class Session {
      * @param {Object} parameters
      * @param {String} parameters.apiKey - API key (from croquet.io/keys)
      * @param {String} parameters.appId - unique application identifier as [dot-separated words](https://developer.android.com/studio/build/application-id) (e.g. `"com.example.myapp"`)
-     * @param {String} parameters.name - a name for this session (e.g. `"123abc"`)
-     * @param {String} parameters.password - a password for this session (used for end-to-end encryption of messages and snapshots)
-     * @param {Model}  parameters.model - the root Model class for your app
-     * @param {View?}   parameters.view - the root View class for your app, if any
+     * @param {String?} parameters.name - a name for this session (e.g. `"123abc"`)
+     * @param {String?} parameters.password - a password for this session (used for end-to-end encryption of messages and snapshots)
+     * @param {Model}   parameters.model - the root Model class for your app
+     * @param {View?}   parameters.view - the root View class for your app
      * @param {Object?} parameters.options - options passed into the root model's [init()]{@link Model#init} function (no default)
      * @param {Object?} parameters.viewOptions - options passed into the root views's [constructor()]{@link View#constructor} (no default)
      * @param {Object?} parameters.viewData - data passed as additional payload to the [`"view-join"` event]{@link event:view-join} and [`"view-exit"` event]{@link event:view-exit} (no default)
@@ -99,6 +99,9 @@ export class Session {
      * @param {(Number|Boolean)?} parameters.autoSleep - number of seconds of app being hidden (e.g., in a tab that is behind others) before it should go dormant - disconnecting from the reflector, and staying that way until it is made visible again (`0` or `false` mean the app will never voluntarily go dormant; `true` means default value of `10`s; otherwise any non-negative number)
      * @param {Number?} parameters.rejoinLimit - time in milliseconds until view is destroyed after a disconnection, to allow for short network glitches to be smoothly passed over (default `1000`)
      * @param {Number?} parameters.eventRateLimit - maximum number of events (single or bundled) sent to reflector per second (`1` to `60`; default `20`)
+     * @param {String?} parameters.reflector - URL of the reflector to use (default is the public reflector)
+     * @param {String?} parameters.files - URL of the file server to use (default is the public file server)
+     * @param {String?} parameters.box - croquet-in-a-box server to use (reflector + file server)
      * @param {String|String[]} parameters.debug - array, or comma-separated string, containing one or more of the following values to enable console logging of the corresponding details
      * (note that you can also enable these temporarily for a deployed app via the `debug` URL parameter, e.g. `?debug=session,snapshot`):
      * | value         | description
@@ -185,9 +188,14 @@ export class Session {
         // (in particular, PBKDF2 is synchronous, and expensive in our case because of crypto.js)
         await Promise.all(promises);
         function inherits(A, B) { return A === B || A.prototype instanceof B; }
-        // check apiKey
-        if (typeof parameters.apiKey !== "string") throw Error("Croquet: no apiKey provided in Session.join()!");
-        if (parameters.apiKey.length > 128) throw Error("Croquet: apiKey > 128 characters in Session.join()!");
+        // check apiKey if no box is given
+        if (parameters.box) {
+            if (typeof parameters.box !== "string") throw Error("Croquet: box must be a string in Session.join()!");
+            if (!parameters.box.includes('/')) throw Error("Croquet: box must be a (partial) URL in Session.join()!");
+        } else if (!parameters.reflector || !parameters.files) {
+            if (typeof parameters.apiKey !== "string") throw Error("Croquet: no apiKey provided in Session.join()!");
+            if (parameters.apiKey.length > 128) throw Error("Croquet: apiKey > 128 characters in Session.join()!");
+        }
         // sanitize name
         if (typeof parameters.name !== "string") throw Error("Croquet: no session name provided in Session.join()!");
         if (parameters.name.length > 128) throw Error("Croquet: session name > 128 characters in Session.join()!");
@@ -205,7 +213,7 @@ export class Session {
         if (typeof parameters.password !== "string" || !parameters.password) throw Error("Croquet: no password provided in Session.join()");
         // ensure that certain parameters that can be specified as parameters or url
         // options are in the urlOptions object that gets checked in controller.js
-        for (const key of ['reflector', 'synchronizer', 'files', 'backend']) {
+        for (const key of ['reflector', 'synchronizer', 'files', 'backend', 'box']) {
             const value = urlOptions[key] || parameters[key]; // url option takes precedence
             if (value !== undefined) urlOptions[key] = value;
         }
