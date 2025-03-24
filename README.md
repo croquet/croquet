@@ -17,7 +17,3 @@
         * file server
 
         via Docker Compose, for local development or easy deployment
-
-* `website`:
-    * a [Jekyll](https://jekyllrb.com) site, automatically deployed via GitHub action
-    * deployed apps

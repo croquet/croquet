@@ -491,7 +491,7 @@ async function startServerForDePIN() {
     try {
         nodeDataChannel = await import('node-datachannel'); // can't (and in fact don't want to) use static require()
     } catch (err) {
-        global_logger.error({ event: "node-datachannel-not-found" }, `${err.message || err} - did you install optional dependencies?`);
+        global_logger.error({ event: "node-datachannel-not-found" }, err.message || err);
         process.exit(EXIT.FATAL);
     }
     nodeDataChannel.initLogger('Error'); // 'Verbose' | 'Debug' | 'Info' | 'Warning' | 'Error' | 'Fatal';
