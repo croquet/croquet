@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-44 add ?box= shortcut for reflector+file server
 * 2.0.0-43 Apache License, make work on croquet.dev (remove dev & staging servers)
 * 2.0.0-42 rename viewInfo to viewData, add types; hide some info from synch
 * 2.0.0-41 increase ICE timeout, fix PBKDF2 parameters (regression introduced in -33)
