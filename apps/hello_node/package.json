@@ -10,6 +10,6 @@
   "author": "Croquet Corporation",
   "license": "ISC",
   "dependencies": {
-    "@croquet/croquet": "^2.0.0-0"
+    "@croquet/croquet": "file:../../packages/croquet"
   }
 }
