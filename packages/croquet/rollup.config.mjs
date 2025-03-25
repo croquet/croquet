@@ -9,7 +9,7 @@ import MagicString from 'magic-string';
 import moment from 'moment';
 import os from 'os';
 import { execSync } from 'child_process';
-const pkg = require("./package.json");
+import pkg from './package.json' with {type: "json"};
 
 const is_dev_build = process.env.NODE_ENV !== "production";
 const is_node = process.env.CROQUET_PLATFORM === "node";
@@ -143,6 +143,7 @@ const outputs = {
         file: 'cjs/croquet-croquet-node.js',
         format: 'cjs',
         sourcemap: true,
+        inlineDynamicImports: true,
     },
 };
 
@@ -164,7 +165,6 @@ const node_webrtc_import = `
 `;
 
 const config = () => ({
-    inlineDynamicImports: true,
     input: 'croquet.js',
     output: outputs[target],
     // in script tag, we want to bundle all dependencies
@@ -207,7 +207,7 @@ const config = () => ({
         fixups(is_node), // must be after terser
         license({
             banner:
-`Copyright Croquet Corporation ${git_date.slice(0, 4)}
+`Copyright Croquet Labs ${git_date.slice(0, 4)}
 Bundle of ${pkg.name}
 Date: ${bundle_date.slice(0, 10)}
 Version: ${process.env.CROQUET_VERSION}`,

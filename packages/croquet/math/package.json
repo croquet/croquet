@@ -7,10 +7,10 @@
   "license": "Apache-2.0",
   "dependencies": {},
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^15.0.0",
-    "@rollup/plugin-node-resolve": "^9.0.0",
-    "@stdlib/stdlib": "0.0.92",
-    "rollup": "^2.26.8",
-    "rollup-plugin-cleanup": "^3.1.1"
+    "@rollup/plugin-commonjs": "^28.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@stdlib/stdlib": "0.3.2",
+    "rollup": "^4.37.0",
+    "rollup-plugin-cleanup": "^3.2.1"
   }
 }
