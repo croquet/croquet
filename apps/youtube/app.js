@@ -980,10 +980,8 @@ function load() {
         if (!joined) {
             joined = true;
             Croquet.Session.join({
-                appId: "io.croquet.youtube",
-                name: Croquet.App.autoSession('q'),
                 apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
-                password: "secret",
+                appId: "io.croquet.youtube",
                 model: YouTubePlayerModel,
                 view: YouTubePlayerView,
                 autoSleep: false,

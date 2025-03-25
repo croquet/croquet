@@ -4,6 +4,7 @@
 build
 dist
 node_modules
+.parcel-cache
 # Croquet npm
 /packages/croquet/cjs
 /packages/croquet/pub

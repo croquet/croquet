@@ -3,7 +3,7 @@
   "version": "0.0.42",
   "description": "Deterministic float math functions based on stdlib-js",
   "main": "math-dist.js",
-  "author": "Croquet Labs,
+  "author": "Croquet Labs",
   "license": "Apache-2.0",
   "dependencies": {},
   "devDependencies": {

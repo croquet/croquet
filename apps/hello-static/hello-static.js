@@ -112,8 +112,6 @@ class MyView extends Croquet.View {
 Croquet.Session.join({
     apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
     appId: "io.croquet.hello",
-    name: Croquet.App.autoSession(),
-    password: Croquet.App.autoPassword(),
     model: MyModel,
     view: MyView,
 });

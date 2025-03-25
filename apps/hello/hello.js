@@ -2,7 +2,7 @@
 //
 // Croquet Labs, 2025
 //
-// This is an example of a simple Teatime applicaton. It creates a counter that counts up once
+// This is an example of a simple Croquet applicaton. It creates a counter that counts up once
 // per second. Clicking on it resets it to zero. The counter is replicated across the network and
 // will respond to clicks from any user in the same session. The current value of the
 // counter is automatically saved to the cloud.
@@ -71,14 +71,12 @@ class MyView extends Croquet.View {
 }
 
 //------------------------------------------------------------------------------------------
-// Join the Teatime session and spawn our model and view.
+// Join the session and spawn our model and view.
 //------------------------------------------------------------------------------------------
 
 Croquet.Session.join({
     apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
     appId: "io.croquet.hello",
-    name: Croquet.App.autoSession(),
-    password: Croquet.App.autoPassword(),
     model: MyModel,
     view: MyView,
 });

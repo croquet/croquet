@@ -12,7 +12,7 @@
   "author": "Croquet Labs",
   "license": "ISC",
   "dependencies": {
-    "@croquet/croquet": "file:../libraries/packages/croquet"
+    "@croquet/croquet": "file:../../packages/croquet"
   },
   "devDependencies": {
     "parcel": "^1.12.3"

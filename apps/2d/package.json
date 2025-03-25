@@ -20,7 +20,7 @@
     ]
   },
   "dependencies": {
-    "@croquet/croquet": "file:../libraries/packages/croquet"
+    "@croquet/croquet": "file:../../packages/croquet"
   },
   "devDependencies": {
     "@parcel/transformer-image": "^2.0.0-nightly.2400",

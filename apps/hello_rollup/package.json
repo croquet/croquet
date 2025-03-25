@@ -11,7 +11,7 @@
   "author": "Croquet Labs",
   "license": "ISC",
   "dependencies": {
-    "@croquet/croquet": "file:../libraries/packages/croquet",
+    "@croquet/croquet": "file:../../packages/croquet",
     "magic-string": "^0.25.6"
   },
   "devDependencies": {
