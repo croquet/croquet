@@ -1472,7 +1472,7 @@ export default class Controller {
                 delete this.fastForwardHandler;
                 if (success) {
                     if (DEBUG.session) console.log(this.id, `fast-forwarded to ${Math.round(this.vm.time)}`);
-                    if (this.vm.diverged) App.showMessage("Croquet: session had diverged", { level: "warning", only: "once" });
+                    if (this.vm.diverged) App.showMessage("Croquet: session had diverged. Try CROQUETVM.debugDiverged()", { level: "warning", only: "once" });
                     // iff fast-forward was successful, trigger return from establishSession().
                     // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
                     this.sessionSpec.sessionJoined();
