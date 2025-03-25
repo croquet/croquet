@@ -8,6 +8,17 @@ import Swal from 'sweetalert2';
 import "./pix.css";
 import "sweetalert2/dist/sweetalert2.min.css";
 
+const builder = document.createElement("div");
+builder.innerHTML = `
+    <input id="imageinput" type="file" multiple accept="image/jpeg,image/gif,image/png,image/bmp" style="display:none;">
+    <img id="image">
+    <div id="prevButton" class="button"></div>
+    <div id="nextButton" class="button"></div>
+    <div id="delButton" class="button"></div>
+    <div id="addButton" class="button"></div>
+`;
+document.body.append(...builder.children);
+
 
 class PixModel extends Model {
 
@@ -436,7 +447,8 @@ class PixView extends View {
 window.document.addEventListener("wheel", evt => evt.preventDefault(), { passive: false, capture: false });
 
 const session = {
-    ...CROQUET_SESSION,
+    apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
+    appId: 'io.croquet.pix',
     model: PixModel,
     view: PixView,
     tps: 0
