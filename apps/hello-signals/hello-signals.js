@@ -1,6 +1,6 @@
 // Hello World With Signals
 //
-// Croquet Labs, 2024
+// Croquet Labs, 2025
 //
 // This is an example of a simple Teatime applicaton. It creates a counter that counts up once
 // per second. Clicking on it resets it to zero. The counter is replicated across the network and

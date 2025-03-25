@@ -7,7 +7,7 @@
     "start": "webpack serve --mode development --devtool source-map",
     "build": "webpack build --mode production"
   },
-  "author": "Croquet Corp",
+  "author": "Croquet Labs,
   "license": "Apache-2.0",
   "dependencies": {
     "@croquet/croquet": "^2.0.0-4",

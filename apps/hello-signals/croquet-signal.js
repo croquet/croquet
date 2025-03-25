@@ -5,7 +5,7 @@
 // It uses signals to store state in the model and effects to update UI elements when the state changes,
 // instead of having to publish changes from the model and subscribe to them in a view.
 //
-// Author: Vanessa Freudenberg, Croquet Labs, 2024
+// Author: Vanessa Freudenberg, Croquet Labs, 2025
 //
 // USAGE
 //

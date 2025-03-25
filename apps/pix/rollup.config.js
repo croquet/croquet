@@ -27,7 +27,7 @@ export default {
             mangle: {module: true},
         }),
         license({
-            banner: `Copyright Croquet Corporation <%= (new Date).getFullYear() %>`
+            banner: `Copyright Croquet Labs <%= (new Date).getFullYear() %>`
         })
     ],
 };

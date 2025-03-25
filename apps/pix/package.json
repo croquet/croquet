@@ -8,7 +8,7 @@
     "watch": "rollup -c -w --no-watch.clearScreen",
     "serve": "serve -l 3000"
   },
-  "author": "Croquet Corporation",
+  "author": "Croquet Labs",
   "license": "ISC",
   "dependencies": {
     "hammerjs": "^2.0.8",

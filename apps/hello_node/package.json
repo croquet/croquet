@@ -7,7 +7,7 @@
     "start": "node hello_node.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Croquet Corporation",
+  "author": "Croquet Labs",
   "license": "ISC",
   "dependencies": {
     "@croquet/croquet": "file:../../packages/croquet"

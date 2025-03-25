@@ -1,6 +1,6 @@
 // Hello World Example
 //
-// Croquet Corporation, 2019
+// Croquet Labs, 2025
 //
 // This is an example of a simple chat application. It creates a chatroom where users can
 // post messages to a shared conversation.

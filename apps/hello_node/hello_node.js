@@ -1,6 +1,6 @@
 // Hello World Node Example
 //
-// Croquet Corporation, 2022
+// Croquet Labs, 2025
 //
 // This is an example of a simple Teatime applicaton. It creates a counter that counts up once
 // per second. The model is exactly the same as the HTML Hello World example, so they can join

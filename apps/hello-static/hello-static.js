@@ -1,6 +1,6 @@
 // Hello World Static Props Test
 //
-// Croquet Labs, 2024
+// Croquet Labs, 2025
 //
 // This is an example of a simple Teatime applicaton. It uses various static properties to
 // excercise the snapshotting of these static properties in Croquet.

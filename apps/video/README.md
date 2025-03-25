@@ -1,7 +1,7 @@
 
 # Croquet synced video demo
 
-Copyright (C) 2020 Croquet Corporation
+Copyright (C) 2025 Croquet Labs
 
 This repository contains a demonstration of a Croquet-based app for shared playback of an mp4 video dragged into any user's browser tab.
 
