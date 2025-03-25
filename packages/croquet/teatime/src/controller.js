@@ -465,8 +465,8 @@ export default class Controller {
         const hashOverride = urlOptions.hashOverride || sessionSpec.hashOverride;
         // now do the hashing, separately for persistent and session IDs`
         const persistentId = await hashNameAndOptions(name, persistentParams);
-        // on DePIN, token is undefined
-        const { developerId, token } = await this.verifyApiKey(apiKey, appId, persistentId);
+        // on DePIN, token is undefined but iceServers is an array
+        const { developerId, token, iceServers } = await this.verifyApiKey(apiKey, appId, persistentId);
         const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, sessionParams, hashOverride, CROQUET_VERSION);
         if (!this.tove) this.tove = await this.encrypt(id);
         if (viewData && !this.viewDataEncrypted) this.viewDataEncrypted = await this.encryptPayload(viewData);
@@ -482,6 +482,7 @@ export default class Controller {
         this.eventHistoryLimit = this.eventRateLimit; // warn user if this many sends recorded in under a second
         this.eventMaxBundles = this.eventRateLimit; // disconnect app if more than this many message bundles are waiting
 
+        if (iceServers) globalThis.iceServersP = Promise.resolve(iceServers); // see webrtc.js
         this.sessionSpec = { ...sessionSpec, options, name, id, persistentId, developerId, token, codeHash, computedCodeHash, debugEvents };
 
         const { msPerTick, multiplier } = this.getTickAndMultiplier();
@@ -587,11 +588,13 @@ export default class Controller {
                     referrerPolicy: 'no-referrer-when-downgrade',
                 });
             });
-            // result from multisynq either has developerId or error, with token always undefined
-            const { error, developerId, token } = await response.json();
+            // result from multisynq either has developerId or error, and iceServers list
+            // result from croquet.io has developerId and token
+            const payload = await response.json();
+            const { developerId, error } = payload;
             if (error) throw Error(error);
             if (DEBUG.session) console.log(`${DEPIN ? "Multisynq" : "Croquet"}: verified API key for developer ${developerId}`);
-            return { developerId, token };
+            return payload;
         } catch (err) {
             throw Error(`${DEPIN ? "Multisynq" : "Croquet"} API key validation failed for "${apiKey}": ${err.message}`);
         }
