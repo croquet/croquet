@@ -119,4 +119,10 @@ class ChatView extends View {
 // Join the Teatime session and spawn our model and view.
 //------------------------------------------------------------------------------------------
 
-Session.join("chat", ChatModel, ChatView, {step: "auto"});
+Session.join({
+    appId: "io.croquet.chat",
+    apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
+    model: ChatModel,
+    view: ChatView,
+    tps: 0, // since there are no future messages, we don't need ticks
+});
