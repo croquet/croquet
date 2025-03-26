@@ -35,6 +35,7 @@ class CroquetRapierWorld extends RAPIER.World {
 // all Model code should be in Constants to get hashed into session ID
 Constants.RapierVersion = RAPIER.version();
 Constants.CroquetRapierWorld = CroquetRapierWorld;
+Constants.BallRadius = 0.2;
 
 class RapierModel extends Model {
 
@@ -63,8 +64,8 @@ class RapierModel extends Model {
         const gravity = { x: 0.0, y: -9.81 };
         this.world = new CroquetRapierWorld(gravity);
 
-        const ground = this.world.createCollider(RAPIER.ColliderDesc.cuboid(1000.0, 0.1));
-        ground.setFriction(0.5);
+        this.ground = this.world.createCollider(RAPIER.ColliderDesc.cuboid(1000.0, 0.1));
+        this.ground.setFriction(0.5);
 
         this.objects = [];
 
@@ -82,7 +83,7 @@ class RapierModel extends Model {
             const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic();
             body = this.world.createRigidBody(rigidBodyDesc);
             // Create a collider attached to the dynamic rigidBody
-            const colliderDesc = RAPIER.ColliderDesc.ball(0.2);
+            const colliderDesc = RAPIER.ColliderDesc.ball(Constants.BallRadius);
             const collider = this.world.createCollider(colliderDesc, body);
             collider.setFriction(0.5);
             this.objects.push({ body, color });
@@ -129,10 +130,10 @@ class RapierView extends View {
         super(model);
         this.model = model;
         this.subscribe(model.id, { event: "bodies-changed", handling: "oncePerFrame" }, this.bodiesChanged);
-        this.ctx = TestCanvas.getContext('2d');
         let hue = Math.random() * 360;
         const color = () => `hsl(${hue = (hue + 1) % 360}, 100%, 50%)`;
-        TestCanvas.onclick = () => this.publish(model.id, "click", color());
+        canvas.onclick = () => this.publish(model.id, "click", color());
+        this.ctx = canvas.getContext('2d');
         this.bodiesChanged();
     }
 
@@ -145,7 +146,7 @@ class RapierView extends View {
         for (const { body, color} of this.model.objects) {
             const pos = body.translation();
             ctx.beginPath();
-            ctx.arc(pos.x, pos.y, 0.2, 0, 2 * Math.PI, false);
+            ctx.arc(pos.x, pos.y, Constants.BallRadius, 0, 2 * Math.PI, false);
             ctx.fillStyle = color;
             ctx.fill();
         }
@@ -156,7 +157,7 @@ async function go() {
     App.makeWidgetDock();
     const session = await Session.join({
         apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
-        appId: "io.croquet.rapier-test",
+        appId: "io.croquet.rapier2d",
         model: RapierModel,
         view: RapierView,
     });

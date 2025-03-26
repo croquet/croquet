@@ -1,8 +1,8 @@
 {
-  "name": "rapier-test",
+  "name": "croquet-rapier2d",
   "version": "0.0.1",
   "description": "Rapier physics test in Croquet",
-  "main": "rapier-test.js",
+  "main": "rapier2d.js",
   "scripts": {
     "start": "webpack serve --mode development --devtool source-map",
     "build": "webpack build --mode production"
