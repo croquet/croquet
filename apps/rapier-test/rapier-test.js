@@ -1,33 +1,50 @@
-import { Model, View, App, Session } from "@croquet/croquet";
+import { Model, View, Constants, App, Session } from "@croquet/croquet";
 
-import RAPIER from "@dimforge/rapier2d";
+import RAPIER from "@dimforge/rapier2d-deterministic";
 
 /*
+ For Rapier docs see https://rapier.rs/docs/
 
-ISSUES
-
-* separate objects refer to world, cannot be de-serialized separately (need ref to world)
-  => now hacking world ref into every engine object
-* Q: how to set position of an object after creation?
-* Q: do we need to manual free() objects we retrieve from rapier?
-* Q: are handles unique to each world? Can we have multiple rapier worlds at the same time?
-
+ To be able to deserialize RAPIER objects individually, we need a reference
+ to the world in each object. So we hack one into each object when it is created
+ or deserialized.
 */
+
+class CroquetRapierWorld extends RAPIER.World {
+    createCollider(desc, parent) {
+        const collider = super.createCollider(desc, parent);
+        collider._world = this;
+        return collider;
+    }
+
+    createRigidBody(desc) {
+        const body = super.createRigidBody(desc);
+        body._world = this;
+        return body;
+    }
+
+    static restoreSnapshot(snapshot) {
+        const world = super.restoreSnapshot(snapshot);
+        Object.setPrototypeOf(world, CroquetRapierWorld.prototype);
+        world.forEachRigidBody(body => body._world = world);
+        world.forEachCollider(collider => collider._world = world);
+        return world;
+    }
+}
+
+// all Model code should be in Constants to get hashed into session ID
+Constants.RapierVersion = RAPIER.version();
+Constants.CroquetRapierWorld = CroquetRapierWorld;
 
 class RapierModel extends Model {
 
     static types() {
+        // serializer for rapier objects
         return {
-            "RAPIER.World": {
-                cls: RAPIER.World,
+            "CroquetRapierWorld": {
+                cls: CroquetRapierWorld,
                 write: world => world.takeSnapshot(),
-                read: snapshot => {
-                    const world = RAPIER.World.restoreSnapshot(snapshot);
-                    // HACK to give object serializers below access to world
-                    world.forEachRigidBody(body => body._world = world);
-                    world.forEachCollider(collider => collider._world = world);
-                    return world;
-                },
+                read: snapshot => CroquetRapierWorld.restoreSnapshot(snapshot),
             },
             "RAPIER.RigidBody": {
                 cls: RAPIER.RigidBody,
@@ -43,35 +60,60 @@ class RapierModel extends Model {
     }
 
     init() {
-        this.reset();
+        const gravity = { x: 0.0, y: -9.81 };
+        this.world = new CroquetRapierWorld(gravity);
 
-        this.subscribe(this.id, "reset", this.reset);
+        const ground = this.world.createCollider(RAPIER.ColliderDesc.cuboid(1000.0, 0.1));
+        ground.setFriction(0.5);
 
-        this.future(100, this.step);
+        this.objects = [];
+
+        this.subscribe(this.id, "click", this.click);
+
+        this.spray();
+        this.step();
     }
 
-    reset() {
-        // there appears to be no way to move objects, so we just recreate the world for now
-        const gravity = { x: 0.0, y: -9.81 };
-        this.world = new RAPIER.World(gravity);
+    shoot(color) {
+        let body;
 
-        // Create the ground
-        const groundColliderDesc = RAPIER.ColliderDesc.cuboid(10.0, 0.1);
-        const ground = this.world.createCollider(groundColliderDesc);
-        ground._world = this.world; // HACK to give serializer access to world
+        if (this.objects.length < 50) {
+            // Create a dynamic rigid-body
+            const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic();
+            body = this.world.createRigidBody(rigidBodyDesc);
+            // Create a collider attached to the dynamic rigidBody
+            const colliderDesc = RAPIER.ColliderDesc.ball(0.2);
+            const collider = this.world.createCollider(colliderDesc, body);
+            collider.setFriction(0.5);
+            this.objects.push({ body, color });
+        } else {
+            // Re-use oldest body
+            const obj = this.objects.shift();
+            obj.color = color;
+            this.objects.push(obj);
+            body = obj.body;
+        }
 
-        // Create a dynamic rigid-body.
-        const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
-                .setTranslation(0.0, 10.0);
-        this.rigidBody = this.world.createRigidBody(rigidBodyDesc);
-        this.rigidBody._world = this.world; // HACK to give serializer access to world
+        body.setTranslation(new RAPIER.Vector2(0, 0.2), true);
 
-        // Create a cuboid collider attached to the dynamic rigidBody.
-        const colliderDesc = RAPIER.ColliderDesc.cuboid(0.5, 0.5);
-        this.collider = this.world.createCollider(colliderDesc, this.rigidBody);
-        this.collider._world = this.world; // HACK to give serializer access to world
+        const x = Math.random() * 0.1 - 0.05;
+        const y = 1.5;
+        body.applyImpulse(new RAPIER.Vector2(x, y), true);
 
         this.publish(this.id, "bodies-changed");
+    }
+
+    click(color) {
+        this.shoot(color);
+
+        // resume spraying in 5 seconds
+        this.cancelFuture(this.spray);
+        this.future(5000, this.spray);
+    }
+
+    spray() {
+        this.shoot("#ccc");
+        this.future(500, this.spray);
     }
 
     step() {
@@ -86,9 +128,11 @@ class RapierView extends View {
     constructor(model) {
         super(model);
         this.model = model;
-        this.subscribe(model.id, "bodies-changed", this.bodiesChanged);
+        this.subscribe(model.id, { event: "bodies-changed", handling: "oncePerFrame" }, this.bodiesChanged);
         this.ctx = TestCanvas.getContext('2d');
-        TestCanvas.onclick = () => this.publish(model.id, "reset");
+        let hue = Math.random() * 360;
+        const color = () => `hsl(${hue = (hue + 1) % 360}, 100%, 50%)`;
+        TestCanvas.onclick = () => this.publish(model.id, "click", color());
         this.bodiesChanged();
     }
 
@@ -97,23 +141,22 @@ class RapierView extends View {
         ctx.resetTransform();
         ctx.clearRect(0, 0, 500, 500);
         ctx.translate(250, 500);
-        ctx.scale(20, -20);
-        const pos = this.model.rigidBody.translation();
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, 1, 0, 2 * Math.PI, false);
-        ctx.fillStyle = 'red';
-        ctx.fill();
+        ctx.scale(50, -50);
+        for (const { body, color} of this.model.objects) {
+            const pos = body.translation();
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, 0.2, 0, 2 * Math.PI, false);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
     }
 }
 
 async function go() {
-    App.messages = true;
     App.makeWidgetDock();
     const session = await Session.join({
         apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
         appId: "io.croquet.rapier-test",
-        name: App.autoSession(),
-        password: App.autoPassword(),
         model: RapierModel,
         view: RapierView,
     });
