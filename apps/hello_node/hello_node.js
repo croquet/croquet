@@ -72,7 +72,7 @@ if (process.argv.length < 4) {
 }
 
 Croquet.Session.join({
-    apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
+    apiKey: "234567_Paste_Your_Own_API_Key_Here_7654321",
     appId: "io.croquet.hello",
     name: process.argv[2],
     password: process.argv[3],

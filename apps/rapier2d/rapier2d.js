@@ -156,7 +156,6 @@ class RapierView extends View {
 async function go() {
     App.makeWidgetDock();
     const session = await Session.join({
-        apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
         appId: "io.croquet.rapier2d",
         model: RapierModel,
         view: RapierView,
@@ -165,3 +164,4 @@ async function go() {
 }
 
 go();
+    apiKey: "234567_Paste_Your_Own_API_Key_Here_7654321",

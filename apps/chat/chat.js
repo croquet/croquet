@@ -121,7 +121,7 @@ class ChatView extends View {
 
 Session.join({
     appId: "io.croquet.chat",
-    apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
+    apiKey: "234567_Paste_Your_Own_API_Key_Here_7654321",
     model: ChatModel,
     view: ChatView,
     tps: 0, // since there are no future messages, we don't need ticks

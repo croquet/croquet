@@ -45,7 +45,7 @@ export function setupCounter(element: HTMLButtonElement) {
 
   Session.join({
     appId: "io.croquet.hello-typescript",
-    apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
+    apiKey: "234567_Paste_Your_Own_API_Key_Here_7654321",
     name: location.origin + location.pathname, // one session per URL
     password: "shared",
     model: Counter,

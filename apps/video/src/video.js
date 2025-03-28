@@ -669,7 +669,7 @@ async function go() {
     App.makeWidgetDock();
 
     Session.join({
-        apiKey: "2DT9VCoCKtvXMKkBGZXNLrUEoZMn48ojXPC8XFAuuO",
+        apiKey: "234567_Paste_Your_Own_API_Key_Here_7654321",
         appId: "io.croquet.examples.video_demo",
         model: SyncedVideoModel,
         view: SyncedVideoView,
