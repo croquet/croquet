@@ -400,17 +400,17 @@ export default class VirtualMachine {
 
         execInVM(this, () => {
             inModelRealm(this, () => {
-                /** all the models in this vm */
-                this.modelsById = {};
-                /** named entry points to models (so a view can attach to it) */
-                this.modelsByName = {};
-                /** pending messages, sorted by time and sequence number */
+                /** all the models in this vm by id */
+                this.models = {};
+                /** named models (initially only 'modelRoot') */
+                this.namedModels = {};
+                /** future/pending external messages, sorted by time and sequence number */
                 this.messages = new PriorityQueue((a, b) => a.before(b));
                 /** @type {{"scope:event": Array<String>}} model subscriptions, maps topic to handlers */
                 this.subscriptions = {};
                 /** @type {Map<String, Set<String>>} maps models to subscribed topics. Excluded from snapshot */
                 this.subscribers = new Map();
-                /** @type {Array<{topic,handler}>} generic subscriptions */
+                /** @type {Array<{topic,handler}>} generic subscriptions, i.e. subscribe('*', ...) */
                 this.genericSubscriptions = [];
                 /** @type {string} meta data for currently executing subscription handler */
                 this.currentEvent = "";
@@ -418,7 +418,7 @@ export default class VirtualMachine {
                 this.currentEventFromModel = false;
                 /** @type {boolean} true if event logging is enabled */
                 this.debugEvents = debugEvents;
-                /** @type {{[id:string]: {extraConnections?: Number}}} viewIds of active reflector connections */
+                /** @type {{[id:string]: {extraConnections?: Number, data?: object, loc?: object}}} active reflector connections */
                 this.views = {};
                 /** @type {SeedRandom} our synced pseudo random stream */
                 this._random = () => { throw Error("You must not use random when applying state!"); };
@@ -448,7 +448,7 @@ export default class VirtualMachine {
                 this.diverged = null;
                 /** @type {Controller} our controller, for sending messages. Excluded from snapshot */
                 this.controller = null;
-                if (snapshot.modelsById) {
+                if (snapshot.models) {
                     // read vm from snapshot
                     const reader = VMReader.newOrRecycled(this);
                     const vmData = reader.readVM(snapshot, "VM", compat);
@@ -481,7 +481,7 @@ export default class VirtualMachine {
                     this._random = new SeedRandom(snapshot.id, { state: true });
                     this.addSubscription(this, "__VM__", "__peers__", this.generateJoinExit);
                     this.addSubscription(this, "__VM__", "__diverged__", this.handleSessionDiverged);
-                    // creates root model and puts it in modelsByName as "rootModel"
+                    // creates root model and makes it well-known as 'modelRoot'
                     initFn(this);
                 }
             });
@@ -491,39 +491,39 @@ export default class VirtualMachine {
     registerModel(model, id) {
         if (CurrentVM !== this) throw Error("You can only create models from model code!");
         if (!id) id = "M" + ++this.modelsId;
-        this.modelsById[id] = model;
+        this.models[id] = model;
         // not assigning the id here catches missing super calls in init() and load()
         return id;
     }
 
     deregisterModel(id) {
         if (CurrentVM !== this) throw Error("You can only destroy models from model code!");
-        const model = this.modelsById;
-        delete this.modelsById[id];
-        for (const [name, value] of Object.entries(this.modelsByName)) {
-            if (model === value) delete this.modelsByName[name];
+        const model = this.models;
+        delete this.models[id];
+        for (const [name, value] of Object.entries(this.namedModels)) {
+            if (model === value) delete this.namedModels[name];
         }
         this.messages.removeMany(msg => msg.hasReceiver(id));
     }
 
     lookUpModel(id) {
         if (id === "_") return this;
-        let model = this.modelsById[id];
+        let model = this.models[id];
         if (model) return model;
         const [_, modelID, partId] = id.match(/^([^#]+)#(.*)$/) || [];
-        model = this.modelsById[modelID];
+        model = this.models[modelID];
         return model && model.lookUp(partId);
     }
 
     get(modelName) {
-        const model = this.modelsByName[modelName];
+        const model = this.namedModels[modelName];
         if (CurrentVM !== this && DEBUG.write && model) return this.debugWriteProxy(this, model, model.id);
         return model;
     }
 
     set(modelName, model) {
         if (CurrentVM !== this) throw Error("You can only make a model well-known from model code!");
-        this.modelsByName[modelName] = model;
+        this.namedModels[modelName] = model;
     }
 
     debugWriteProxy(vm, object, path) {

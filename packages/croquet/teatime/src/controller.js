@@ -504,7 +504,7 @@ export default class Controller {
         // connections/disconnections happen along the way.
 
         // reset sessionSpec.snapshot to a dummy in preparation for install()
-        // (its dummy status is detected by lack of a modelsById property)
+        // (its dummy status is detected by lack of a models property)
         const { id, persistentId, codeHash } = this.sessionSpec;
         this.sessionSpec.snapshot = { id, time: 0, meta: { id, persistentId, codeHash, created: (new Date()).toISOString() } };
         const joined = new Promise(resolve => { this.sessionSpec.sessionJoined = resolve; });
@@ -1565,7 +1565,7 @@ export default class Controller {
     install(persistentData) {
         const start = Date.now();
         const {snapshot, initFn, options, debugEvents } = this.sessionSpec;
-        const [verb, noun] = snapshot.modelsById ? ["deserializ", "snapshot"] : ["initializ", "root model"];
+        const [verb, noun] = snapshot.models ? ["deserializ", "snapshot"] : ["initializ", "root model"];
         if (DEBUG.session) console.log(this.id, `${verb}ing ${noun}`);
         let newVM = new VirtualMachine(snapshot, debugEvents, () => {
             try { return initFn(options, persistentData); }
@@ -1574,10 +1574,10 @@ export default class Controller {
                 throw error; // unrecoverable.  bring the whole tab to a halt.
             }
         }, this.migratingOldSnapshot);
-        if (DEBUG.session || (DEBUG.snapshot && snapshot.modelsById)) {
+        if (DEBUG.session || (DEBUG.snapshot && snapshot.models)) {
             console.log(this.id, `${noun} ${verb}ed in ${Date.now() - start}ms`);
         }
-        if (DEBUG.initsnapshot && !snapshot.modelsById) {
+        if (DEBUG.initsnapshot && !snapshot.models) {
             // exercise serializer if we came from initFn
             if (DEBUG.snapshot) console.log(this.id, `exercising snapshot and restore after init()`);
             let initialSnapshot = null;
