@@ -673,6 +673,11 @@ export default class Controller {
         return snapshot;
     }
 
+    requestDebugSnapshot() {
+        this.setDebug("snapshot", true);
+        this.scheduleSnapshot(this.viewId); // force snapshot from this machine
+    }
+
     // we have spent a certain amount of CPU time on simulating, so schedule a snapshot
     scheduleSnapshot(force=false) {
         // abandon if this call (delayed by up to 2s - possibly more, if browser is busy)
@@ -699,7 +704,7 @@ export default class Controller {
             // (if the simulation is behind then this will not be totally identical but what can we do?)
             const viewIds = Object.keys(this.vm.views);
             viewIds.sort();
-            if (viewIds[0] === this.viewId || viewIds[1] === this.viewId || viewIds[2] === this.viewId) {
+            if (force === this.viewId || viewIds[0] === this.viewId || viewIds[1] === this.viewId || viewIds[2] === this.viewId) {
                 if (DEBUG.snapshot) console.log(`forcing snapshot poll`);
             } else {
                 if (DEBUG.snapshot) console.log(`not forcing snapshot poll (not one of the three)`);

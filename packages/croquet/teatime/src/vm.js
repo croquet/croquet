@@ -1319,6 +1319,11 @@ export default class VirtualMachine {
         return stableStringify(new VMHasher().getHash(this));
     }
 
+    forceSnapshot() {
+        // only for debugging
+        this.controller.requestDebugSnapshot();
+    }
+
     persist(model, persistentDataFunc) {
         if (this.controller && this.controller.sessionSpec.appId === 'no.appId') console.warn("Croquet: appId should be provided in Session.join() to not overwrite another apps's persistent data");
         const start = Stats.begin("snapshot");
