@@ -446,31 +446,13 @@ class PixView extends View {
 
 window.document.addEventListener("wheel", evt => evt.preventDefault(), { passive: false, capture: false });
 
-const session = {
+
+App.makeWidgetDock();
+
+Session.join({
     apiKey: "234567_Paste_Your_Own_API_Key_Here_7654321",
     appId: 'io.croquet.pix',
     model: PixModel,
     view: PixView,
     tps: 0
-};
-
-const url = new URL(window.location);
-const urlHadName = url.searchParams.has("q");
-const urlHadPassword = !!url.hash;
-
-// if no name in CROQUET_SESSION, use autoSession
-if (!session.name) session.name = App.autoSession();
-
-// if no password in CROQUET_SESSION, use autoPassword,
-// but migrate old sessions without passwords
-if (!session.password) {
-    if (urlHadName && !urlHadPassword) {
-        session.password = "dummy-pass";
-    } else {
-        session.password = App.autoPassword();
-    }
-}
-
-App.messages = true;
-App.makeWidgetDock();
-Session.join(session);
+});

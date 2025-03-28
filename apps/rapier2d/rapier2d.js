@@ -131,7 +131,7 @@ class RapierView extends View {
         this.model = model;
         this.subscribe(model.id, { event: "bodies-changed", handling: "oncePerFrame" }, this.bodiesChanged);
         let hue = Math.random() * 360;
-        const color = () => `hsl(${hue = (hue + 1) % 360}, 100%, 50%)`;
+        const color = () => `hsl(${hue = (hue + 1) % 360|0}, 100%, 50%)`;
         canvas.onclick = () => this.publish(model.id, "click", color());
         this.ctx = canvas.getContext('2d');
         this.bodiesChanged();
@@ -153,15 +153,10 @@ class RapierView extends View {
     }
 }
 
-async function go() {
-    App.makeWidgetDock();
-    const session = await Session.join({
-        appId: "io.croquet.rapier2d",
-        model: RapierModel,
-        view: RapierView,
-    });
-    console.log(session.model.world);
-}
-
-go();
+App.makeWidgetDock();
+Session.join({
     apiKey: "234567_Paste_Your_Own_API_Key_Here_7654321",
+    appId: "io.croquet.rapier2d",
+    model: RapierModel,
+    view: RapierView,
+});
