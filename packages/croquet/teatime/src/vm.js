@@ -1814,6 +1814,10 @@ class VMWriter {
     addWriter(classId, ClassOrSpec) {
         const isSpec = Object.getPrototypeOf(ClassOrSpec) === Object.prototype;
         const {cls, write} = isSpec ? ClassOrSpec : {cls: ClassOrSpec, write: obj => ({ ...obj })};
+        if (!write) {
+            if (!ClassOrSpec.writeStatic) console.warn(`Croquet: ${classId} does not implement write() or writeStatic()`);
+            return;
+        }
         this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), isSpec ? `${path}.write(${cls.name})` : path));
     }
 
