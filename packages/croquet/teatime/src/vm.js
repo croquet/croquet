@@ -1598,6 +1598,7 @@ class VMHasher {
     addHasher(classId, ClassOrSpec) {
         const { cls, write } = (Object.getPrototypeOf(ClassOrSpec) === Object.prototype) ? ClassOrSpec
             : { cls: ClassOrSpec, write: obj => ({ ...obj }) };
+        if (!write) return;
         this.hashers.set(cls, obj => this.hashStructure(obj, write(obj)));
     }
 
@@ -1819,8 +1820,11 @@ class VMWriter {
     addWriter(classId, ClassOrSpec) {
         const isSpec = Object.getPrototypeOf(ClassOrSpec) === Object.prototype;
         const {cls, write} = isSpec ? ClassOrSpec : {cls: ClassOrSpec, write: obj => ({ ...obj })};
+        // Object and Array are used by the serializer itself, can't override their serialization
+        if (cls === Object) throw Error(`Croquet types: '${classId}' is the Object class itself, must be a user class`);
+        if (cls === Array) throw Error(`Croquet types: '${classId}' is the Array class, must be a user class`);
         if (!write) {
-            if (!ClassOrSpec.writeStatic) console.warn(`Croquet: ${classId} does not implement write() or writeStatic()`);
+            if (!ClassOrSpec.writeStatic) console.warn(`Croquet types: ${classId} does not implement write() or writeStatic()`);
             return;
         }
         this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), isSpec ? `${path}.write(${cls.name})` : path));
