@@ -154,6 +154,9 @@ export class CroquetWebRTCConnection {
                     // sent by the SessionRunner to indicate socket acceptance.
                     // now includes the SessionRunner-assigned client id.
                     this.clientId += `_${msgData.id}`;
+                    if (msgData.iceServers && !globalThis.iceServersP) {
+                        globalThis.iceServersP = Promise.resolve(msgData.iceServers);
+                    }
                     resolve();
                     return;
                 }
