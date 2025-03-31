@@ -2,7 +2,7 @@ import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no
 import { displayAppError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import { addClassHash } from "./hashing";
 import { currentRealm } from "./realms";
-import VirtualMachine, { createQFunc, resetReadersAndWriters } from "./vm";
+import VirtualMachine, { createQFunc, resetReadersAndWriters, gatherClassTypes } from "./vm";
 
 const DEBUG = {
     classes: urlOptions.has("debug", "classes"),
@@ -326,7 +326,7 @@ class Model {
      */
     static gatherClassTypes(dummyObject, prefix) {
         const result = {};
-        gatherClassTypesRec({root: dummyObject}, prefix, result, new Set());
+        gatherClassTypes({root: dummyObject}, prefix, result, new Set());
         return result;
     }
 
@@ -939,29 +939,6 @@ function registerClass(cls, classId) {
     }
     ModelClasses[classId] = cls;
     return cls;
-}
-
-function gatherClassTypesRec(dummyObject, prefix, gatheredClasses, seen) {
-    const newObjects = Object.values(dummyObject)
-        .filter(prop => {
-            const type = Object.prototype.toString.call(prop).slice(8, -1);
-            return (type === "Object" || type === "Array") && !seen.has(prop);
-        });
-    for (const obj of newObjects) {
-        seen.add(obj);
-        const className = prefix + '.' + obj.constructor.name;
-        if (gatheredClasses[className]) {
-            if (gatheredClasses[className] !== obj.constructor) {
-                throw new Error("Class with name " + className + " already gathered, but new one has different identity");
-            }
-        } else {
-            gatheredClasses[className] = obj.constructor;
-        }
-    }
-    // we did breadth-first
-    for (const obj of newObjects) {
-        gatherClassTypesRec(obj, prefix, gatheredClasses, seen);
-    }
 }
 
 // register without logging or hashing

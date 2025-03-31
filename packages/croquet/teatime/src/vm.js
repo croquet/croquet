@@ -2435,6 +2435,58 @@ export function resetReadersAndWriters() {
     MessageArgumentDecoder.resetInstance();
 }
 
+// we handle reading/writing for all the system classes
+const SYSTEM_CLASSES = [
+    Object,
+    Array,
+    Map,
+    Set,
+    BigInt,
+    ArrayBuffer,
+    DataView,
+    Int8Array,
+    Uint8Array,
+    Uint8ClampedArray,
+    Int16Array,
+    Uint16Array,
+    Int32Array,
+    Uint32Array,
+    Float32Array,
+    Float64Array,
+];
+
+export function gatherClassTypes(object, prefix, gatheredClasses, seen) {
+    // get all contained values
+    const values = (Array.isArray(object) ? object
+        : object.constructor === Set ? object.values()
+        : object.constructor === Map ? object.entries()
+        : Object.values(object));
+    // filter out non-objects and already seen objects
+    const newObjects = [];
+    for (const val of values) {
+        if (typeof val !== 'object' || val === null || seen.has(val)) continue;
+        seen.add(val);
+        newObjects.push(val);
+    }
+    // gather classes of the new objects, ignoring standard classes
+    for (const obj of newObjects) {
+        if (SYSTEM_CLASSES.includes(obj.constructor)) continue;
+
+        const className = prefix + '.' + obj.constructor.name;
+        if (gatheredClasses[className]) {
+            if (gatheredClasses[className] !== obj.constructor) {
+                throw new Error("Class with name " + className + " already gathered, but new one has different identity");
+            }
+        } else {
+            gatheredClasses[className] = obj.constructor;
+        }
+    }
+    // recurse into the new objects
+    for (const obj of newObjects) {
+        gatherClassTypes(obj, prefix, gatheredClasses, seen);
+    }
+}
+
 function warnMultipleSessionsStatic(kind, className) {
     // warn about static properties if there is more than one session
     const sessions = viewDomain.controllers.size;
