@@ -1,10 +1,10 @@
 {
   "name": "@croquet/2d",
   "version": "0.0.1",
-  "description": "",
+  "description": "Simple 2D tests for Croquet",
   "scripts": {
-    "start": "parcel src/*.html -p 9009",
-    "deploy": "./deploy.sh"
+    "start": "parcel --no-autoinstall src/*.html -p 9009",
+    "build": "rimraf dist && parcel build --no-autoinstall src/*.html"
   },
   "author": "",
   "license": "ISC",
@@ -23,8 +23,16 @@
     "@croquet/croquet": "file:../../packages/croquet"
   },
   "devDependencies": {
-    "@parcel/transformer-image": "^2.0.0-nightly.2400",
-    "parcel": "^2.0.0-nightly.776",
-    "parcel-plugin-clean-dist": "0.0.6"
+    "@parcel/transformer-image": "^2.14.4",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "events": "^3.3.0",
+    "parcel": "^2.14.4",
+    "parcel-plugin-clean-dist": "0.0.6",
+    "process": "^0.11.10",
+    "rimraf": "^6.0.1",
+    "stream-browserify": "^3.0.0",
+    "string_decoder": "^1.3.0",
+    "vm-browserify": "^1.1.2"
   }
 }
