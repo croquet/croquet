@@ -515,6 +515,12 @@ export default class Controller {
     }
 
     getBackend(apiKeysWithBackend) {
+        if (DEBUG.offline) return {
+            apiKey: "none",
+            signServer: "none",
+            reflector: "none",
+        }
+
         if (urlOptions.box || urlOptions.reflector) { // box is croquet-in-a-box, see session.js
             return {
                 apiKey: "none",
@@ -543,7 +549,7 @@ export default class Controller {
         const apiKey = key.key;
         let backend = urlOptions.backend || key.backend;
         const overridden = urlOptions.reflector?.includes("/");
-        if (backend === "none" || DEBUG.offline) {
+        if (backend === "none") {
             return {
                 apiKey, // without api key even stand-alone reflectors currently send a warning
                 signServer: "none",
