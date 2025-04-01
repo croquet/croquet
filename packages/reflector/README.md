@@ -1,8 +1,10 @@
+# Croquet Reflector
 
+This is the server that keeps Croquet clients (which are using the `@croquet/croquet` library) in sync.
 
-# Reflector
+It does so by sending out a timing beacon ("ticks") interleaved with time-stamped user input events ("messages). Since every client executes deterministically from the same initial state, only depending on what it receives from the reflector, and every client receives the exact same events, all clients evolve their state independently but absolutely identical.
 
-See [../../docker/reflectors/README.md](../../docker/reflectors/README.md) for more info on how the reflectors fit into the broader architecture.
+Clients upload snapshots of their state to a file server from time to time. The reflector keeps track of the snapshos. When a new client joints, the reflector sends it a SYNC message containing the latest snapshot URL, and a list of messages received since that snapshot was taken. The client fast-forwards through that list and then is in the same state as every other client.
 
 ## Running locally
 
@@ -15,43 +17,16 @@ npm ci
 To run the reflector locally (with nicer logs via the `.pino-prettyrc` in this directory):
 
 ```
-node reflector.js --standalone --storage=none | npx pino-pretty
+npm start
 ```
 
 This will open a web socket server on `ws://localhost:9090/`. To route a client application to your locally running reflector, modify the client's url in the browser to point to the local web socket server. For example, we can take this example application called "2d" at the following url https://croquet.io/2d/index.html, and change it to the url https://croquet.io/2d/index.html?&debug=session,snapshots&reflector=ws://localhost:9090.
 
-## Running via https
+## Deploying the reflector to a stand-alone environment
 
-You can use the built-in https server using the `--https` command line flag.
-However, you need to [create a key and certificate](https://nodejs.org/en/knowledge/HTTP/servers/how-to-create-a-HTTPS-server/) first:
+The easiest way to get a fully working installation is [Croquet-in-a-Box](../../server/croquet-in-a-box/). It combines a reflector with a web server and file server (both using `nginx`) in a single package.
 
-```
-openssl genrsa -out reflector-key.pem
-openssl req -new -key reflector-key.pem -out csr.pem
-openssl x509 -req -days 9999 -in csr.pem -signkey reflector-key.pem -out reflector-cert.pem
-rm csr.pem
-```
-After you have the `reflector-key.pem` and `reflector-cert.pem` files in the reflector directory, run it:
-```
-node reflector.js --https --standalone --storage=none | node node_modules/pino-pretty/bin.js -Sctlm message
-```
-
-
-## Running Tests
-
-To run tests locally, execute:
-
-```
-npm test
-```
-
-## Deploying the reflector to a test environment
-
-TODO
-
-## Deploying to production
-
-TODO
+# Miscellaneous
 
 ## Logging
 
