@@ -30,6 +30,24 @@ class CroquetRapierWorld extends RAPIER.World {
         world.forEachCollider(collider => collider._world = world);
         return world;
     }
+
+    static SerializerDefs = {
+        "CroquetRapierWorld": {
+            cls: CroquetRapierWorld,
+            write: world => world.takeSnapshot(),
+            read: snapshot => CroquetRapierWorld.restoreSnapshot(snapshot),
+        },
+        "RAPIER.RigidBody": {
+            cls: RAPIER.RigidBody,
+            write: body => [body._world, body.handle],
+            read: ([world, handle]) => world.bodies.get(handle),
+        },
+        "RAPIER.Collider": {
+            cls: RAPIER.Collider,
+            write: collider => [collider._world, collider.handle],
+            read: ([world, handle]) => world.colliders.get(handle),
+        },
+    }
 }
 
 // all Model code should be in Constants to get hashed into session ID
@@ -39,26 +57,7 @@ Constants.BallRadius = 0.2;
 
 class RapierModel extends Model {
 
-    static types() {
-        // serializer for rapier objects
-        return {
-            "CroquetRapierWorld": {
-                cls: CroquetRapierWorld,
-                write: world => world.takeSnapshot(),
-                read: snapshot => CroquetRapierWorld.restoreSnapshot(snapshot),
-            },
-            "RAPIER.RigidBody": {
-                cls: RAPIER.RigidBody,
-                write: body => [body._world, body.handle],
-                read: ([world, handle]) => world.bodies.get(handle),
-            },
-            "RAPIER.Collider": {
-                cls: RAPIER.Collider,
-                write: collider => [collider._world, collider.handle],
-                read: ([world, handle]) => world.colliders.get(handle),
-            },
-        }
-    }
+    static types() { return CroquetRapierWorld.SerializerDefs; }
 
     init() {
         const gravity = { x: 0.0, y: -9.81 };
@@ -78,29 +77,29 @@ class RapierModel extends Model {
     shoot(color) {
         let body;
 
-        if (this.objects.length < 50) {
-            // Create a dynamic rigid-body
-            const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic();
-            body = this.world.createRigidBody(rigidBodyDesc);
-            // Create a collider attached to the dynamic rigidBody
-            const colliderDesc = RAPIER.ColliderDesc.ball(Constants.BallRadius);
-            const collider = this.world.createCollider(colliderDesc, body);
-            collider.setFriction(0.5);
-            this.objects.push({ body, color });
-        } else {
-            // Re-use oldest body
+        // Remove the oldest body if we have too many
+        if (this.objects.length > 50) {
             const obj = this.objects.shift();
-            obj.color = color;
-            this.objects.push(obj);
-            body = obj.body;
+            this.world.removeRigidBody(obj.body);
         }
 
+        // Create a dynamic rigid-body
+        const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic();
+        body = this.world.createRigidBody(rigidBodyDesc);
         body.setTranslation(new RAPIER.Vector2(0, 0.2), true);
 
+        // Create a collider attached to the dynamic rigidBody
+        const colliderDesc = RAPIER.ColliderDesc.ball(Constants.BallRadius);
+        const collider = this.world.createCollider(colliderDesc, body);
+        collider.setFriction(0.5);
+        this.objects.push({ body, color });
+
+        // Apply an upward impulse to the rigid-body
         const x = Math.random() * 0.1 - 0.05;
         const y = 1.5;
         body.applyImpulse(new RAPIER.Vector2(x, y), true);
 
+        // let the view know
         this.publish(this.id, "bodies-changed");
     }
 
