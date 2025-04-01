@@ -31,7 +31,7 @@
   "types": "types.d.ts",
   "files": [
     "README.md",
-    "LICENSE.md",
+    "LICENSE.txt",
     "cjs/croquet-croquet.js",
     "cjs/croquet-croquet.js.map",
     "cjs/croquet-croquet-node.js",

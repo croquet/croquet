@@ -1,6 +1,9 @@
-# Croquet
+# Croquet 🦩
 *very much under construction*
 
+## License
+
+Croquet is licensed under [Apache-2.0](LICENSE.txt).
 
 ## Repo Layout
 
