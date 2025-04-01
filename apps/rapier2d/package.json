@@ -10,7 +10,7 @@
   "author": "Croquet Labs",
   "license": "Apache-2.0",
   "dependencies": {
-    "@croquet/croquet": "^2.0.0-4",
+    "@croquet/croquet": "^2.0.0-46",
     "@dimforge/rapier2d-deterministic": "^0.15.0"
   },
   "devDependencies": {
