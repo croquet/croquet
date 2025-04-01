@@ -4,6 +4,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # latest @dev
 
+* 2.0.0-46 add CROQUETVM.forceSnapshot(), fix offline mode, get ICE servers via websocket
 * 2.0.0-45 use ICE servers list from DePIN API, update build deps
 * 2.0.0-44 add ?box= shortcut for reflector+file server
 * 2.0.0-43 Apache License, make work on croquet.dev (remove dev & staging servers)
