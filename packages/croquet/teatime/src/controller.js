@@ -90,6 +90,18 @@ function initOptions() {
     }
 }
 
+function setDebug(options={}) {
+    if (!DEBUG) initOptions();
+    if (typeof options === "string") {
+        options = Object.fromEntries(options.split(",").map(option => [option.replace(/^no/, ""), !options.startsWith("no")]));
+    }
+    for (const [key, value] of Object.entries(options)) {
+        if (key in DEBUG) DEBUG[key] = value;
+        else App.showMessage(`Croquet: unknown debug option "${key}"`, { level: "warning", only: "once" });
+    }
+    return DEBUG;
+};
+
 /*
 function isLocalUrl(hostname) {
     // copied from devauth/signurl/urlMatcher.js
@@ -258,7 +270,7 @@ export function sessionController(sessionId) {
 export default class Controller {
 
     constructor() {
-        initOptions();
+        if (!DEBUG) initOptions();
         this.reset();
     }
 
@@ -679,8 +691,9 @@ export default class Controller {
     }
 
     requestDebugSnapshot() {
-        this.setDebug("snapshot", true);
-        this.scheduleSnapshot(this.viewId); // force snapshot from this machine
+        setDebug("snapshot");
+        this.triggeringCpuTime = 1e-10; // pretend this is the fastest machine, so we will take the snapshot
+        this.scheduleSnapshot(this.viewId); // force snapshot poll from this machine
     }
 
     // we have spent a certain amount of CPU time on simulating, so schedule a snapshot
