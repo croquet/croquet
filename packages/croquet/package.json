@@ -38,6 +38,8 @@
     "cjs/croquet-croquet-node.js.map",
     "pub/croquet.min.js",
     "pub/croquet.min.js.map",
+    "pub/croquet.esm.js",
+    "pub/croquet.esm.js.map",
     "types.d.ts"
   ],
   "scripts": {

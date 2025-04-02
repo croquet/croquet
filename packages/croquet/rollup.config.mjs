@@ -125,13 +125,20 @@ console.log(`Building Croquet ${process.env.CROQUET_VERSION}`);
 console.log(`  prod: ${!is_dev_build}, pushed: ${git_pushed}, bumped: ${git_bumped}, clean: ${git_clean}`);
 
 const outputs = {
-    // bundled build with all dependencies for direct inclusion in script tag, e.g. via jsdelivr
-    pub: {
-        file: 'pub/croquet.min.js',
-        format: 'iife',
-        name: 'Croquet',
-        sourcemap: true,
-    },
+    // bundled builds with all dependencies for direct inclusion in script tag, e.g. via jsdelivr
+    pub: [
+        {
+            file: 'pub/croquet.min.js',
+            format: 'iife',
+            name: 'Croquet',
+            sourcemap: true,
+        },
+        {
+            file: 'pub/croquet.esm.js',
+            format: 'es',
+            sourcemap: true,
+        },
+    ],
     // commonjs build for bundlers (does not include dependencies)
     cjs: {
         file: 'cjs/croquet-croquet.js',
