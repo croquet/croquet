@@ -56,7 +56,7 @@ function addWidgetStyle() {
 `;
     const widgetStyle = document.createElement("style");
     widgetStyle.innerHTML = widgetCSS;
-    document.head.insertBefore(widgetStyle, document.head.getElementsByTagName("style")[0]);
+    document.head.insertBefore(widgetStyle, document.head.querySelector("style,link[rel=stylesheet]"));
 }
 
 // add style for the spinner
