@@ -756,7 +756,7 @@ export default class Controller {
         if (DEBUG.snapshot) console.log(this.id, `Summary hashing took ${Math.ceil(ms)}ms`);
 
         // sending the vote is handled asynchronously, because we want to add a view-side random()
-        Promise.resolve().then(() => this.pollForSnapshot(time, voteData));
+        queueMicrotask(() => this.pollForSnapshot(time, voteData));
     }
 
     pollForSnapshot(time, voteData) {
@@ -786,7 +786,7 @@ export default class Controller {
             const auditStats = {...this.auditStats};
             const snapshot = this.takeSnapshotHandleErrors();
             // switch out of the simulation loop
-            if (snapshot) Promise.resolve().then(() => this.uploadSnapshot(snapshot, auditStats, dissidentFlag));
+            if (snapshot) queueMicrotask(() => this.uploadSnapshot(snapshot, auditStats, dissidentFlag));
         }
     }
 
@@ -1257,7 +1257,7 @@ export default class Controller {
             const { clientId } = this.connection.socket; // random id assigned by CroquetWebRTCConnection
             // having gathered the stats we need, schedule the actual reporting outside
             // the simulation
-            Promise.resolve().then(() => {
+            queueMicrotask(() => {
                 if (DEBUG.session) console.log(this.id, `handling audit request at ${time} after ${bytesIn} bytes in, ${bytesOut} out`);
                 const encodedStats = encodeURIComponent(JSON.stringify({ time, clientId, lastUsers, minUsers, maxUsers, payloadTally, bytesIn, bytesOut }));
                 const url = `${DEPIN_API}/clients/report?session=${this.id}&stats=${encodedStats}`.replace('ws', 'http');
@@ -1477,7 +1477,7 @@ export default class Controller {
                         }
                     };
 
-                    Promise.resolve().then(() => this.stepSession("fastForward", { budget: MAX_SIMULATION_MS })); // immediate but not in the message handler
+                    queueMicrotask(() => this.stepSession("fastForward", { budget: MAX_SIMULATION_MS })); // immediate but not in the message handler
                     });
                 delete this.fastForwardHandler;
                 if (success) {
@@ -1524,7 +1524,7 @@ export default class Controller {
                 let rawTime;
                 if (this.flags.rawtime) rawTime = msg[msg.length - 1];
                 this.timeFromReflector(msg[0], "reflector", rawTime);
-                if (this.simulateIfNeeded) Promise.resolve().then(() => this.simulateIfNeeded()); // immediate but not in the message handler
+                if (this.simulateIfNeeded) queueMicrotask(() => this.simulateIfNeeded()); // immediate but not in the message handler
                 return;
             }
             case 'TICK': {
@@ -1539,7 +1539,7 @@ export default class Controller {
                 }
                 this.timeFromReflector(time, "reflector");
                 if (this.tickMultiplier > 1) this.multiplyTick(time);
-                if (this.simulateIfNeeded) Promise.resolve().then(() => this.simulateIfNeeded()); // immediate but not in the message handler
+                if (this.simulateIfNeeded) queueMicrotask(() => this.simulateIfNeeded()); // immediate but not in the message handler
                 return;
             }
             case 'INFO': {
