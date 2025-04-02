@@ -1,0 +1,52 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  background-color: #87ceeb;
+}
+canvas {
+  display: block;
+}
+/* Mobile Controls Styling */
+.controls {
+  position: fixed;
+  bottom: 20px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 20px;
+  box-sizing: border-box;
+  z-index: 10;
+  pointer-events: none; /* Allow clicks/touches to pass through container */
+}
+.controls button {
+  pointer-events: auto; /* Enable interaction for buttons */
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  padding: 15px 20px;
+  font-size: 18px;
+  border-radius: 5px;
+  touch-action: manipulation; /* Prevents zooming on double tap */
+  user-select: none; /* Prevent text selection */
+  -webkit-user-select: none; /* Safari */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* IE */
+}
+.controls .left-controls,
+.controls .right-controls {
+  display: flex;
+  gap: 10px;
+}
+.controls .left-controls {
+  justify-content: flex-start;
+}
+.controls .right-controls {
+  justify-content: flex-end;
+}
+
+/* Hide controls on desktop */
+@media (min-width: 769px) {
+  .controls {
+    display: none;
+  }
+}

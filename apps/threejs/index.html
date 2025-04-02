@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <head>
+        <title>Croquet – ThreeJS</title>
+        <link rel="stylesheet" href="./style.css">
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+                    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/",
+                    "@croquet/croquet": "https://esm.run/@croquet/croquet@2.0.0-46"
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <!-- On-screen Mobile Controls -->
+        <div class="controls">
+            <div class="left-controls">
+            <button id="btn-left">Left</button>
+            <button id="btn-right">Right</button>
+            </div>
+            <div class="right-controls">
+            <button id="btn-fwd">Fwd</button>
+            <button id="btn-bwd">Bwd</button>
+            </div>
+        </div>
+
+        <script src="croquet-three.js" type="module"></script>
+    </body>
+</html>
