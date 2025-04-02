@@ -1319,6 +1319,11 @@ export default class VirtualMachine {
         return stableStringify(new VMHasher().getHash(this));
     }
 
+    debug(options) {
+        // only for debugging: options is either { [option]: value } or a 'opt1,opt2,noopt3,...' string
+        return this.controller.setDebug(options);
+    }
+
     forceSnapshot() {
         // only for debugging
         this.controller.requestDebugSnapshot();

@@ -690,6 +690,10 @@ export default class Controller {
         return snapshot;
     }
 
+    setDebug(options) {
+        return setDebug(options);
+    }
+
     requestDebugSnapshot() {
         setDebug("snapshot");
         this.triggeringCpuTime = 1e-10; // pretend this is the fastest machine, so we will take the snapshot
