@@ -4,15 +4,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Croquet Postcard</title>
     <style>
-      body { font-family: monospace; }
+      body {
+        font-family: monospace;
+      }
+      #croquet-view {
+        position: relative;
+        background-color: #ddd;
+        padding: 1em;
+        border-radius: 1em;
+        width: 50%;
+        margin: auto;
+      }
+      #croquet_spinnerOverlay {
+        position: absolute;
+      }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@2.0.0-46"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@2.0.0-47/pub/croquet.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.25"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prism-themes@1.9/themes/prism-shades-of-purple.min.css" />
   </head>
   <body>
-    <h1 id="output">...</h1>
-    <button id="button">Reset</button>
+    <div id="croquet-view">
+      <h1 id="output">...</h1>
+      <button id="button">Reset</button>
+    </div>
     <p>
       This is an extremely simple <a href="https://croquet.io/">Croquet</a> app.
       It is built as a single static HTML page.
@@ -63,6 +78,7 @@ class Display extends Croquet.View {
 }
 
 // Show messages and QR code
+Croquet.App.root = document.getElementById("croquet-view");
 Croquet.App.messages = true;
 Croquet.App.makeWidgetDock();
 
