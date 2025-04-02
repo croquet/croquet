@@ -128,7 +128,7 @@ function addSpinnerStyle() {
 `;
     const spinnerStyle = document.createElement("style");
     spinnerStyle.innerHTML = spinnerCSS;
-    document.head.insertBefore(spinnerStyle, document.head.getElementsByTagName("style")[0]);
+    document.head.insertBefore(spinnerStyle, document.head.querySelector("style,link[rel=stylesheet]"));
 }
 
 let addedToastifyStyle = false;
@@ -215,7 +215,7 @@ function addToastifyStyle() {
 `;
     const toastifyStyle = document.createElement("style");
     toastifyStyle.innerHTML = toastifyCSS;
-    document.head.insertBefore(toastifyStyle, document.head.getElementsByTagName("style")[0]);
+    document.head.insertBefore(toastifyStyle, document.head.querySelector("style,link[rel=stylesheet]"));
 }
 
 // this is the default App.messageFunction
