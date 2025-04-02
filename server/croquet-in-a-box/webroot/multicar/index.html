@@ -394,6 +394,7 @@ class SimInterface extends Croquet.View {
     // this is called when the session is interrupted
     detach() {
         this.renderer.dispose();
+        super.detach();
     }
 
     onCarAdded(simCar) {
@@ -723,7 +724,7 @@ function setupControls() {
 }
 
 const ThisSession = await Croquet.Session.join({
-    box: '/', // use default Croquet-in-a-Box reflector
+    box: '/', // use this Croquet-in-a-Box reflector
     apiKey: 'none', // not needed for Croquet-in-a-Box
     appId: "io.croquet.threejs",
     model: SharedSimulation,

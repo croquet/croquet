@@ -1,0 +1,83 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Croquet Postcard</title>
+    <style>
+      body { font-family: monospace; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@2.0.0-46"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.25"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prism-themes@1.9/themes/prism-shades-of-purple.min.css" />
+  </head>
+  <body>
+    <h1 id="output">...</h1>
+    <button id="button">Reset</button>
+    <p>
+      This is an extremely simple <a href="https://croquet.io/">Croquet</a> app.
+      It is built as a single static HTML page.
+      For convenience, it shows its own embedded script source code below.
+    </p>
+    <p>
+      To join this session from another device, share the session URL or scan the QR code in the lower left.
+    </p>
+    <pre><code id="source" class="language-js"></code></pre>
+
+<script id="script">// Shared Model runs in synced Croquet VM on each device.
+// This is equivalent to a server in a client-server architecture.
+class Counter extends Croquet.Model {
+  init() {
+    // init is only executed once if no session exists
+    this.n = 0;
+    // subscribe to events coming in via reflector
+    this.subscribe("counter", "reset", this.reset);
+    // start main loop on every device
+    this.loop();
+    // when resuming existing session, the state, subscriptions,
+    // and future messages are deserialized from previous snapshot
+  }
+  reset() {
+    this.n = 0;
+  }
+  loop() {
+    this.n += 0.1;
+    this.future(100).loop(); // loop 10x per second
+  }
+}
+Counter.register("Counter");
+
+// local View mediates between the User and the shared Model
+class Display extends Croquet.View {
+  constructor(model) {
+    super(model);
+    this.model = model;
+    // publish user event (automatically routed via reflector)
+    button.onclick = () => this.publish("counter", "reset");
+  }
+  // update is called in every frame
+  // (we could instead subscribe to events from the model)
+  update() {
+    // we may read from (but never write to!) our "server" directly
+    output.innerText = this.model.n.toFixed(1);
+  }
+}
+
+// Show messages and QR code
+Croquet.App.messages = true;
+Croquet.App.makeWidgetDock();
+
+// Join session
+Croquet.Session.join({
+  box: '/', // use this Croquet-in-a-Box reflector
+  apiKey: 'none', // not needed for Croquet-in-a-Box
+  appId: 'io.croquet.postcard.counter',
+  model: Counter,
+  view: Display,
+});
+
+// Show highlighted source
+source.innerText = script.innerText;
+Prism.hooks.add('before-highlight', env => env.code = script.innerText);
+    </script>
+  </body>
+</html>
