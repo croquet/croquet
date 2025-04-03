@@ -409,7 +409,7 @@ class PixView extends View {
         if (!current) return;
         const result = await Swal.fire({
             title: 'Delete this image?',
-            text: 'There is no undo, yet 😬',
+            text: 'There is no undo 🛑',
             imageUrl: current.thumb,
             showCancelButton: true,
             confirmButtonText: 'Yes, delete it!',

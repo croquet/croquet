@@ -4,7 +4,7 @@
   "description": "Croquet Chat",
   "scripts": {
     "start": "parcel --no-autoinstall chat.html",
-    "build": "rimraf dist && parcel build --no-autoinstall chat.html"
+    "build": "rimraf dist && parcel build --no-autoinstall --public-url ./ chat.html"
   },
   "browserslist": [
     "> 5%"

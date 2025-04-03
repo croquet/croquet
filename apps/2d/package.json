@@ -4,7 +4,7 @@
   "description": "Simple 2D tests for Croquet",
   "scripts": {
     "start": "parcel --no-autoinstall src/*.html -p 9009",
-    "build": "rimraf dist && parcel build --no-autoinstall src/*.html"
+    "build": "rimraf dist && parcel build --no-autoinstall --public-url ./ src/*.html"
   },
   "author": "",
   "license": "ISC",

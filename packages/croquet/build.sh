@@ -16,7 +16,7 @@ case $VERSION in
         exit 1
         ;;
     *+*) echo "WARN: don't deploy a dirty version: $VERSION"
-        exit 1
+        exit 0
         ;;
     *-*) PRERELEASE=true
         ;;

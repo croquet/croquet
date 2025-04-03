@@ -103,7 +103,7 @@ function fixups() {
 // otherwise: x.y.z-v+branch.commit.user.date
 const deps = ["./teatime", "./math"];
 const git_branch = execSync("git rev-parse --abbrev-ref HEAD").toString().trim();
-const git_commit = execSync("git rev-parse HEAD").toString().trim();                          // last commit hash
+const git_commit = execSync("git log -1 --pretty=format:%H  -- .").toString().trim();                          // last commit hash
 const git_message = execSync("git show --format='%s' -s " + git_commit).toString().trim();    // last commit message
 const git_date = execSync("git show --format='%as' -s " + git_commit).toString().trim();      // last commit date
 const git_pushed = !!execSync("git branch -r --contains " + git_commit).toString().trim();    // last commit was pushed
