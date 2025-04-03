@@ -310,6 +310,7 @@ class SimInterface extends Croquet.View {
     // this is called when the session is interrupted
     detach() {
         this.renderer.dispose();
+        super.detach();
     }
 
     onCarAdded(simCar) {
@@ -638,6 +639,7 @@ function setupControls() {
     });
 }
 
+Croquet.App.makeWidgetDock(); // show QR code
 const ThisSession = await Croquet.Session.join({
     apiKey: "234567_Paste_Your_Own_API_Key_Here_7654321",
     appId: "io.croquet.threejs",

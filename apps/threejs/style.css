@@ -50,3 +50,11 @@ canvas {
     display: none;
   }
 }
+
+/* move QR code to top-right */
+#croquet_dock {
+  top: 10px;
+  right: 10px;
+  left: auto;
+  bottom: auto;
+}
