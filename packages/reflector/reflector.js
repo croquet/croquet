@@ -377,10 +377,6 @@ async function startServerForDePIN() {
     //
     // to ensure that different sessions' clients are kept separate, the keys to
     // these maps are "global" ids composed from the sessionId (shortened) and clientId.
-    //
-    // oct 2024: creation of the server object used to be the last action of this function,
-    // but was moved up front because we had seen cases where ICE-server initialisation was
-    // slow, and (for example) the watchStats function crashed out for lack of a server.
     server = {
         peerConnections: new Map(), // global client id => peerConnection
         clients: new Map(),         // global client id => client object
@@ -411,82 +407,29 @@ async function startServerForDePIN() {
                 catch (e) { /* */ }
                 this.peerConnections.delete(globalClientId);
             }
+
+            this.clientLocations.delete(globalClientId); // in case left over from an abandoned connection
+        },
+        cleanUpSession: function (shortSessionId) {
+            // on offload of a session, after gracefully removing all records for
+            // known clients, sweep through the maps and ensure that there are no
+            // lingering entries for this session.
+            const sessionPrefix = shortSessionId + ':';
+            const cleanMap = map => {
+                for (const id of [...map.keys()]) {
+                    if (id.startsWith(sessionPrefix)) map.delete(id)
+                }
+            };
+            cleanMap(this.peerConnections);
+            cleanMap(this.clients);
+            cleanMap(this.clientLocations);
+console.log(this)
         }
     };
 
-    // on 14 dec 2024 metered.ca had an outage that caused its server-fetching API to
-    // stop responding for most of a 7-hour period.  even if we never encounter
-    // precisely that situation again, it makes sense to guard against ephemeral
-    // problems.
-    let iceServers;
-    async function fetchOpenRelayServers() {
-        if (!process.env.ICE_SERVERS_URL) {
-            global_logger.warn({ event: "no-ice-servers" }, `ICE_SERVERS_URL not set`);
-            return;
-        }
-        // in case of error, indefinitely retry with a 1-minute pause.
-        let foundServers = false;
-        const tryOnce = async () => {
-            try {
-                const response = await fetch(process.env.ICE_SERVERS_URL);
-                const iceServersRaw = await response.json();
+    // note: API described at https://github.com/murat-dogan/node-datachannel/blob/options/API.md
+    // also see https://github.com/murat-dogan/node-datachannel/blob/master/src/lib/index.ts
 
-                /*
-                Examples of what the node-datachannel setup is expecting
-                STUN Server Example          : stun:stun.l.google.com:19302
-                TURN Server Example          : turn:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT
-                TURN Server Example (TCP)    : turn:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT?transport=tcp
-                TURN Server Example (TLS)    : turns:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT
-
-                ...so we need to do some transforming on this kind of response:
-                [   {"urls":"stun:stun.relay.metered.ca:80"},
-                    {"urls":"turn:standard.relay.metered.ca:80","username":"d05d...f84e","credential":"b3Da...G6sI"},
-                    {"urls":"turn:standard.relay.metered.ca:80?transport=tcp","username":"d05d...f84e","credential":"b3Da...G6sI"},
-                    {"urls":"turn:standard.relay.metered.ca:443","username":"d05d...f84e","credential":"b3Da...G6sI"},
-                    {"urls":"turns:standard.relay.metered.ca:443?transport=tcp","username":"d05d...f84e","credential":"b3Da...G6sI"}]
-                */
-                const servers = [];
-                for (const spec of iceServersRaw) {
-                    if (typeof spec === "string") servers.push(spec);
-                    else {
-                        const { urls, username, credential } = spec;
-                        if (!username) servers.push(urls);
-                        else {
-                            const splitUrl = urls.split(':');
-                            const type = splitUrl.shift();
-                            const newSpec = `${type}:${username}:${credential}@${splitUrl.join(':')}`;
-                            servers.push(newSpec);
-                        }
-                    }
-                }
-                if (servers.length) {
-                    global_logger.info({ event: "ice-servers", iceServers }, `found ${servers.length} ICE servers`);
-                    foundServers = true;
-                    iceServers = servers; // set or replace the global
-                } else throw Error("no valid servers in list");
-            } catch (err) {
-                global_logger.error({ event: "no-ice-servers" }, `ICE server fetch failed: ${err.message || err}`);
-            }
-        };
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-            await tryOnce();
-            if (foundServers) return;
-
-            await new Promise(resolve => setTimeout(resolve, 60_000)); // and loop
-        }
-    }
-    const fetchLimiter = new Promise(resolve => setTimeout(resolve, ICE_SERVER_FETCH_LIMIT));
-    await Promise.race([fetchOpenRelayServers(), fetchLimiter]);
-    if (!iceServers) {
-        global_logger.warn({ event: "ice-servers-fallback" }, `proceeding with fallback STUN server`);
-        iceServers = ['stun:stun.l.google.com:19302'];
-    }
-
-    // note: API described at https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/API.md
-    // also see https://github.com/murat-dogan/node-datachannel/blob/c8197e28b39fd81f55818c0301995414fa877ff9/lib/index.d.ts
-
-    // eslint-disable-next-line import/no-unresolved
     let nodeDataChannel;
     try {
         nodeDataChannel = await import('node-datachannel'); // can't (and in fact don't want to) use static require()
@@ -497,7 +440,7 @@ async function startServerForDePIN() {
     nodeDataChannel.initLogger('Error'); // 'Verbose' | 'Debug' | 'Info' | 'Warning' | 'Error' | 'Fatal';
     nodeDataChannel.preload();
 
-    // Signaling connection
+    let iceServers;
 
     // Precedence: --depin command line arg, DEPIN env var, default
     const DEPIN_API_DEFAULT = 'wss://api.multisynq.io/depin';
@@ -1236,9 +1179,47 @@ async function startServerForDePIN() {
                             break;
                         case "CONNECT":
                             // a peer connection isn't set up until the client sends an offer.
-                            // therefore, for now, there's nothing to do here except remembering the
-                            // client's location
+                            // at the time of each client's connection, the session runner sends
+                            // us the registry's latest ICE servers list.
+
+                            /*
+                            Examples of ICE server format expected by the node-datachannel setup:
+                            STUN Server          : stun:stun.l.google.com:19302
+                            TURN Server          : turn:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT
+                            TURN Server (TCP)    : turn:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT?transport=tcp
+                            TURN Server (TLS)    : turns:USERNAME:PASSWORD@TURN_IP_OR_ADDRESS:PORT
+
+                            ...so we need to do some transforming on this kind of response:
+                            [   {"urls":"stun:stun.relay.metered.ca:80"},
+                                {"urls":"turn:standard.relay.metered.ca:80","username":"d05d...f84e","credential":"b3Da...G6sI"},
+                                {"urls":"turn:standard.relay.metered.ca:80?transport=tcp","username":"d05d...f84e","credential":"b3Da...G6sI"},
+                                {"urls":"turn:standard.relay.metered.ca:443","username":"d05d...f84e","credential":"b3Da...G6sI"},
+                                {"urls":"turns:standard.relay.metered.ca:443?transport=tcp","username":"d05d...f84e","credential":"b3Da...G6sI"}]
+                            */
+                            const servers = [];
+                            for (const spec of depinMsg.iceServers) {
+                                if (typeof spec === "string") servers.push(spec);
+                                else {
+                                    const { urls, username, credential } = spec;
+                                    if (!username) servers.push(urls);
+                                    else {
+                                        const splitUrl = urls.split(':');
+                                        const type = splitUrl.shift();
+                                        const newSpec = `${type}:${username}:${credential}@${splitUrl.join(':')}`;
+                                        servers.push(newSpec);
+                                    }
+                                }
+                            }
+                            if (servers.length) {
+                                global_logger.info({ event: "ice-servers", servers }, `session runner sent ${servers.length} ICE servers`);
+                                iceServers = servers; // set or replace the global
+                            } else {
+                                global_logger.error({ event: "no-ice-servers" }, `session runner sent no valid ICE servers`);
+                            }
+
+                            // the session runner also sends the client's location, which we record for later
                             server.clientLocations.set(globalClientId, depinMsg.xLocation);
+
                             session.logger.debug({ event: "client-connected", clientId }, `new client connection ${globalClientId} from ${depinMsg.xLocation.split(',')[0]}`);
                             break;
                         case "DISCONNECT":
@@ -1266,10 +1247,16 @@ async function startServerForDePIN() {
                                     // every ICE negotiation message includes a hash of
                                     // the client's ip address as reported in Cloudflare's
                                     // CF-Connecting-IP header.
-                                    const peerConnection = createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
-                                    peerConnection.mq_clientIpHash = depinMsg.ipHash;
-                                    peerConnection.mq_iceStart = Date.now();
-                                    peerConnection.setRemoteDescription(msg.sdp, msg.type);
+                                    if (iceServers) {
+                                        const peerConnection = createPeerConnection(clientId, globalClientId, sessionId, sessionSocket);
+                                        peerConnection.mq_clientIpHash = depinMsg.ipHash;
+                                        peerConnection.mq_iceStart = Date.now();
+                                        peerConnection.setRemoteDescription(msg.sdp, msg.type);
+                                    } else {
+                                        // issue a warning, and go no further with the client connection.
+                                        // eventually the client will give up.
+                                        session.logger.warn({ event: "ice-not-available", clientId }, `cannot connect client ${globalClientId}: no ICE servers`);
+                                    }
                                     break;
                                 }
                                 case 'candidate':
@@ -1411,8 +1398,6 @@ async function startServerForDePIN() {
 
                 const peerConnection = new nodeDataChannel.PeerConnection('synchronizer', {
                     iceServers
-                    // iceServers: ['stun:stun.l.google.com:19302']
-                    // ['stun:freeturn.net:3478', 'turn:free:free@freeturn.net:3478']
                 });
                 server.peerConnections.set(globalClientId, peerConnection);
                 peerConnection.onStateChange(state => {
@@ -3552,6 +3537,7 @@ async function deregisterSession(id, detail) {
     // - from offloadAllSessions, for a session that doesn't have an island
     // - from DePIN's session.offload - e.g., if session runner rejects synchronizer's connection - again, directly only if the session doesn't have an island
     const session = ALL_SESSIONS.get(id);
+    const shortSessionId = id.slice(0, 8);
     if (session?.timeout) clearTimeout(session.timeout);
     if (!session || session.stage === 'closed') {
         const reason = session ? `stage=${session.stage}` : "no session record";
@@ -3559,7 +3545,7 @@ async function deregisterSession(id, detail) {
         return;
     }
 
-    session.logger.info({event: "deregister", detail}, `deregistering session ${id.slice(0, 8)}: ${detail}`);
+    session.logger.info({event: "deregister", detail}, `deregistering session ${shortSessionId}: ${detail}`);
 
     session.stage = 'closed';
 
@@ -3574,7 +3560,12 @@ async function deregisterSession(id, detail) {
             session.socketKey = ''; // disable onClose processing (whenever the close comes through)
             session.sessionSocketClosed(); // includes cleaning up any clients that are still in negotiation (whereas any remaining fully connected clients in DEPIN are told explicitly to reconnect by deleteIsland)
         }
+
         ALL_SESSIONS.delete(id);
+
+        // final housekeeping to remove any lingering records (main risk is entries
+        // in clientLocations for clients that never managed to connect)
+        if (DEPIN) server.cleanUpSession(shortSessionId);
     };
 
     if (!DISPATCHER_BUCKET) {
