@@ -315,9 +315,9 @@ const RATING_LEVEL = {
 };
 const depinTimeouts = {
     // these can all be overridden by the registry, on successful registration
-    PROXY_STATUS_DELAY: 10_000,       // update this often when running sessions
-    PROXY_PING_DELAY: 10_000,         // simple PINGs are handled by auto-response
-    PROXY_KEEP_ALIVE_DELAY: 28_000,   // chosen so that when not running sessions, every 3rd PING is replaced by ALIVE
+    PROXY_STATUS_DELAY: 15_000,       // update this often when running sessions
+    PROXY_PING_DELAY: 15_000,         // simple PINGs are handled by auto-response
+    PROXY_KEEP_ALIVE_DELAY: 43_000,   // chosen so that when not running sessions, every 3rd PING is replaced by ALIVE
     PROXY_ACK_DELAY_LIMIT: 2000,      // after this, go into RECONNECTING
     PROXY_INTERRUPTION_LIMIT: 30_000, // after this, UNAVAILABLE
     PROXY_CONNECTION_LIMIT: 60_000,   // if no response at all on connection, try again
