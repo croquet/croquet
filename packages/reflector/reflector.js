@@ -2,7 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.2.0"; // should match package.json
+const SYNCH_VERSION = "2.3.0"; // should match package.json
 
 const os = require('node:os');
 const fs = require('node:fs');
