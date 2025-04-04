@@ -605,8 +605,8 @@ export default class Controller {
                     referrerPolicy: 'no-referrer-when-downgrade',
                 });
             });
-            // result from multisynq either has developerId or error, and iceServers list
-            // result from croquet.io has developerId and token
+            // result from multisynq either has developerId or error.
+            // result from croquet.io has developerId and token.
             const payload = await response.json();
             const { developerId, error } = payload;
             if (error) throw Error(error);
