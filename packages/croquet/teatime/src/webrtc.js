@@ -100,7 +100,7 @@ export class CroquetWebRTCConnection {
                 } else {
                     // it appears that negotiation hasn't succeeded.  tell the
                     // controller to scrap the connection altogether and try again.
-                    this.synchronizerDisconnected(1006, "ICE negotiation timed out");
+                    this.synchronizerDisconnected(4003, "ICE negotiation timed out");
                 }
             }, ICE_NEGOTIATION_MAX);
 
