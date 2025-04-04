@@ -1708,7 +1708,7 @@ async function startServerForDePIN() {
         const appFile = path.join(__dirname, 'app_wrapper.js');
         const args = [pathUrl, appName, testKey]; // app_wrapper puts the third arg into Constants, to make a dedicated session
         if (synchSpec) args.push(`--synchSpec=${synchSpec}`);
-        args.push(`--depin=${DEPIN}`, `--debug=session,snapshot`);
+        args.push(`--depin=${DEPIN}`, `--debug=session,noinitsnapshot`);
         // console.log(`child process: ${appFile} ${args.join(' ')}`);
         const utilityAppProcess = child_process.fork(appFile, args, {
             stdio: 'pipe',
