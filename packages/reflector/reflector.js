@@ -423,7 +423,6 @@ async function startServerForDePIN() {
             cleanMap(this.peerConnections);
             cleanMap(this.clients);
             cleanMap(this.clientLocations);
-console.log(this)
         }
     };
 
