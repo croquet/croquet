@@ -4,7 +4,7 @@ We use semantic versioning, see semver.org
 
 ## Pre-releases a.b.c-n
 
-* update [CHANGE_LOG.md](./CHANGE_LOG.md)
+* update [CHANGELOG.md](./CHANGELOG.md)
   - add a line for this pre-release
 * update `version` in `package.json`
   - e.g. `a.b.c-5` becomes `a.b.c-6`
@@ -22,7 +22,7 @@ We use semantic versioning, see semver.org
 ## Release a.b.c
 
 * update README with major changes
-* make sure `types.d.ts` reflects changed API (see [CHANGE_LOG.md](./CHANGE_LOG.md))
+* make sure `types.d.ts` reflects changed API (see [CHANGELOG.md](./CHANGELOG.md))
 * make sure JSDoc comments reflect changed API (`teatime/index.js`, `teatime/src/{model|view|session}.js`)
 * publish new docs
 * deploy release
