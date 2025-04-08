@@ -1,4 +1,5 @@
-# Croquet 🦩
+# Croquet 🦩 
+[![NPM Version](https://img.shields.io/npm/v/%40croquet%2Fcroquet)](http://npmjs.com/package/@croquet/croquet) [![NPM Dev](https://img.shields.io/npm/v/%40croquet%2Fcroquet/dev?color=%23C33)](https://www.npmjs.com/package/@croquet/croquet?activeTab=versions) 
 
 *Croquet lets you build real-time multiuser apps without writing server-side code. Unlike traditional client/server architectures, the multiplayer code is executed on each client in a synchronized virtual machine, rather than on a server.*
 
