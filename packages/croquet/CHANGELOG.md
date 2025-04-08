@@ -6,6 +6,10 @@ These are detailed internal changes. The user-facing change log is at the end of
 
 # latest @dev
 
+...
+
+# 2025-04-08 2.0.0
+
 * 2.0.0-47 add CROQUETVM.debug(), fix.forceSnapshot(), add pub/croquet.esm.js
 * 2.0.0-46 add CROQUETVM.forceSnapshot(), fix offline mode, get ICE servers via websocket
 * 2.0.0-45 use ICE servers list from DePIN API, update build deps
