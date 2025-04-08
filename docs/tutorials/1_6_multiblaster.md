@@ -84,7 +84,7 @@ by drawing the asteroids on a canvas. These parts are subclassed from
 The last few lines instruct Croquet to join a session for a particular model and view class
 via `Croquet.Session.join()`. The name and password for this session are taken from
 the current URL, or generated automatically using `autoSession()` and `autoPassword`.
-It also needs an API key. You should fetch your own key from [croquet.io/keys](https://croquet.io/keys/).
+It also needs an API key. You should fetch your own key from [multisynq.io/coder](https://multisynq.io/coder/).
 
 This version has only 20 lines more than the non-Croquet one from step 0.
 

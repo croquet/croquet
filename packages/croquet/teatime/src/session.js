@@ -85,7 +85,7 @@ export class Session {
      *
      * @async
      * @param {Object} parameters
-     * @param {String} parameters.apiKey - API key (from croquet.io/keys)
+     * @param {String} parameters.apiKey - API key (from multisynq.io/coder)
      * @param {String} parameters.appId - unique application identifier as [dot-separated words](https://developer.android.com/studio/build/application-id) (e.g. `"com.example.myapp"`)
      * @param {String?} parameters.name - a name for this session (e.g. `"123abc"`)
      * @param {String?} parameters.password - a password for this session (used for end-to-end encryption of messages and snapshots)
@@ -136,7 +136,7 @@ export class Session {
      *  - `leave()` is an async function for requesting immediate, permanent disconnection from the session.
      * @example <caption>auto name, password, and main loop</caption>
      * Croquet.Session.join({
-     *     apiKey: "your_api_key",                 // paste from croquet.io/keys
+     *     apiKey: "your_api_key",                 // paste from multisynq.io/coder
      *     appId: "com.example.myapp",             // namespace for session names
      *     name: Croquet.App.autoSession(),        // session via URL arg
      *     password: Croquet.App.autoPassword(),   // password via URL arg

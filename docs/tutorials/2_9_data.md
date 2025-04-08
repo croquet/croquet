@@ -119,7 +119,7 @@ class DataTestView extends Croquet.View {
 Croquet.App.makeWidgetDock();       // show QR code
 Croquet.Session.join({
     appId: "com.example.datatest",
-    apiKey: "<fill in>",            // get an API key from croquet.io/keys
+    apiKey: "<fill in>",            // get an API key from multisynq.io/coder
     model: DataTestModel,
     view: DataTestView,
     tps: 0,

@@ -184,7 +184,7 @@ The option `tps` in [`Session.join`]{@link Session.join} is used to set the tick
 
 ```
 Croquet.Session.join({
-  apiKey: "your_api_key",               // paste from croquet.io/keys
+  apiKey: "your_api_key",               // paste from multisynq.io/coder
   appId: "io.codepen.croquet.smooth",
   name: "unnamed",
   password: "secret",

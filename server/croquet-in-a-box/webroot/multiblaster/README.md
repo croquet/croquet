@@ -16,7 +16,7 @@ All clients are kept in sync automatically by [Croquet](https://croquet.io/)'s s
 # Modify It!
 
 * copy the [index.html](index.html) file to your own machine
-* replace our API key with your own from [croquet.io/keys](https://croquet.io/keys/)
+* replace our API key with your own from [multisynq.io/coder](https://multisynq.io/coder/)
 * edit however you like
 * open the file in a web browser to play
 * copy that single file to any webserver to play with friends
