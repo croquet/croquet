@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "typescript": "^5.5.3",
-    "vite": "^5.4.1",
-    "vite-plugin-commonjs": "^0.10.1"
+    "typescript": "^5.8.3",
+    "vite": "^6.2.5",
+    "vite-plugin-commonjs": "^0.10.4"
   },
   "dependencies": {
     "@croquet/croquet": "file:../../packages/croquet"

@@ -11,7 +11,7 @@
     "serve": "serve -l 3000"
   },
   "dependencies": {
-    "@croquet/croquet": "^2.0.0-47",
+    "@croquet/croquet": "^2.0.0",
     "hammerjs": "^2.0.8",
     "pretty-bytes": "^6.1.1",
     "sweetalert2": "^11.17.2"
