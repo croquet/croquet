@@ -1,6 +1,8 @@
 # Changelog
 
-This is a private summary of changes. The released changes are in the public [README.md](../../../docs/croquet/README.md#changelog).
+Croquet uses [semantic versioning](https://semver.org).
+
+These are detailed internal changes. The user-facing change log is at the end of the [README](./README.md#change-log).
 
 # latest @dev
 
@@ -317,7 +319,7 @@ This is a private summary of changes. The released changes are in the public [RE
 
 # Ancient ...
 
-If someone feels like going through these changes, please do so.
+If someone feels like going through these changes based on the git history, please do so.
 
 * 2019-09-30: 0.2.4
 * 2019-09-23: 0.2.3

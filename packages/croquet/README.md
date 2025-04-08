@@ -1,83 +1,87 @@
-# Croquet 🦩
+# Croquet
 
-Croquet lets you build real-time multi-user webapps with only **front-end** code:
+*Croquet lets you build real-time multiuser apps without writing server-side code. Unlike traditional client/server architectures, the multiplayer code is executed on each client in a synchronized virtual machine, rather than on a server. Croquet is available as a JavaScript library that synchronizes Croquet apps using Multisynq's global DePIN network.*
 
 * can be hosted as a **static website**
 * **no server-side** code needed
 * **no networking** code needed
 * independent of UI framework
 
-You embed your shared code with the front-end code on your website. Instead of being executed on a server, it is executed simultaneously on each browser. Croquet keeps all those browsers in sync automatically, without you having to deploy anything. All you need is an API key to get access to Croquet's reflector network, which provide that synchronization service.
+## Getting Started
 
-## Get Started
+Get a free API key from [multisynq.io](https://multisynq.io/coder)
+_(you can run your own server too but by default the client uses the global Multisynq network)._
 
-1.
-       npm i @croquet/croquet
+    npm i @croquet/croquet
 
-2. get a free API key at [croquet.io/keys](https://croquet.io/keys/)
+You can also use the Croquet pre-bundled files, e.g. via a script tag
 
-3. follow the documentation at [croquet.io/docs](https://croquet.io/docs/croquet/)
+    <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@2.0.0-47/pub/croquet.min.js"></script>
 
-## Example
+or via direct import as a module
 
-Here is our Hello World example which fits on a postcard. You can see it running at [croquet.io/postcard21](https://croquet.io/postcard21/).
+    import * as Croquet from "https://cdn.jsdelivr.net/npm/@croquet/croquet@2.0.0-47/pub/croquet.esm.js";
 
-Look at the source code on that page! Everything is there.
+Structure your app into a synchronized part (subclassed from `Croquet.Model`) and a local part interacting with it (subclassed from `Croquet.View`). Uses `Croquet.Session.join()` with your API key to join a session.
 
-This is the shared part that will be executed in sync on all browsers:
+That's it. No deployment of anything except your HTML+JS.
 
-    class Counter extends Croquet.Model {
-        init() {
-            this.n = 0;
-            this.subscribe("counter", "set", this.set);
-            this.loop();
-        }
-        set(value) {
-            this.n = value;
-            this.publish("counter", "changed");
-        }
-        loop() {
-            this.set(this.n + 0.1);
-            this.future(100).loop();
-        }
-    }
-    Counter.register("Counter");
+Follow the documentation at [multisynq.io/docs](https://multisynq.io/docs) and the example apps in the [Croquet GitHub repo](http://github.com/croquet/croquet).
 
-The non-shared part talks to the local DOM:
+## The Prime Directive
 
-    class Display extends Croquet.View {
-        constructor(model) {
-            super(model);
-            this.model = model;
-            this.changed();
-            this.subscribe("counter", "changed", this.changed);
-            button.onclick = () => this.publish("counter", "set", 0);
-        }
-        changed() {
-            output.innerText = this.model.n.toFixed(1);
-        }
-    }
+*Your Croquet Model must be completely self-contained.*
 
-The rest is boiler-plate to show the QR code and join a session:
+The model must only interact with the outside world via subscriptions to user input events that are published by a view. Everything else needs to be 100% deterministic. The model must not read any state from global variables, and the view must not modify model state directly (although it is allowed to read from it).
 
-    Croquet.App.messages = true;
-    Croquet.App.makeWidgetDock();
+Besides being deterministic, the model must be serializable – it needs to store state in an object-oriented style. That means in particular that the model cannot store functions, which JavaScript does not allow to be introspected for serialization. That also means you cannot use async code in the model. On the view side outside the model you're free to use any style of programming you want.
 
-    Croquet.Session.join({
-        apiKey: 'get your own from croquet.io/keys',
-        appId: 'io.croquet.postcard21.counter',
-        name: Croquet.App.autoSession(),
-        password: Croquet.App.autoPassword(),
-        model: Counter,
-        view: Display,
-    });
+## Servers and networking
 
-That's it!
+By default Croquet runs on the [Multisynq DePIN network](https://multisynq.io) which automatically selects a server close to the first connecting user in a session. Alternatively, you can [run your own reflector](https://github.com/croquet/croquet/tree/main/packages/reflector), but be aware you won't get the benefits of a global deployment then.
 
-Croquet picks the reflector with the lowest latency from its global edge reflector fleet for each session, it sends a timing signal to keep all clients in a session synchronized, it distributes pub/sub events to every client, it automatically snapshots and stores the shared model state (securely encrypting it with the session password), it lets new clients join an ongoing session by sending them the latest snapshot, it detects and automatically resumes broken network connections, etc. All without you having to implement or deploy or maintain or scale any servers.
+All application code and data is only processed on the clients. All network communication and external data storage is end-to-end encrypted by the random session password – since the server does not process application data there is no need for it to be decrypted on the server. This makes Croquet one of the most private real-time multiplayer solutions available.
 
-In other words, Croquet takes care of all the things that are not essential to the logic of your multi-user app, so you have more brain cycles left to work on your app. Which as we all know is hard enough, compared to single-user apps.
+## Change Log
 
-Happy collaborating!
+These are user-facing changes adhering to the [keep-a-changelog](https://keepachangelog.com/) format. For detailed internal changes see [CHANGELOG](./CHANGELOG.md).
 
-The Croquet 🦩 Team
+### [2.0] - 2025-04-08
+
+This is the first release licensed under Apache-2.0.
+
+#### Added
+
+- Support for Multisynq DePIN network (API key at [multisynq.io](https://multisynq.io/coder))
+- add static `Model.isExecuting()` check
+- add `Model.createQFunc()` to allow functions in snapshots
+- add generic subscriptions (scope and/or event are `"*"`)
+- add `activeSubscription()` to access scope, event, and source of currently executing event
+- support snapshotting of static properties
+- add `App.randomSession()` and `App.randomPassword()`
+- `Session.join()` now supports `viewData` property that will be passed to `view-join` event
+
+### [1.1] - 2024-03-20
+
+#### Added
+
+- `BigInt` snapshotting support
+- `Model.cancelFuture()` allows to stop future message evaluation
+- `Model.evaluate()` to evaluate some code with Model semantics (e.g. to initialize constants)
+- `View.session` makes the session object returned from `Session.join()` available to views
+- `Session.join()` now supports a `viewOptions` property
+- `Model.unsubscribe()` and `View.unsubscribe()` can take a `handler` argument
+- `"write"` debug flag detects accidental writes into model state
+- `"offline"` debug flag lets you run without a network connection (single-user)
+handler arg,
+- Node.js support for running a client on Node
+
+#### Fixed
+
+- fixed snapshotting of shared buffers in Typed Arrays
+- fixed deserialization of circular Set and Map refs
+
+
+### [1.0] - 2021-08-23                                                                             |
+
+Public release
