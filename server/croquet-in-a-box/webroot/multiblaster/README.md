@@ -5,7 +5,7 @@ All clients are kept in sync automatically by [Croquet](https://croquet.io/)'s s
 
 # Play It!
 
-[croquet.io/multiblaster](https://croquet.io/multiblaster)
+[apps.multisynq.io/multiblaster](https://apps.multisynq.io/multiblaster)
 
 * open this URL to create a new session
 * use arrow keys to move, and space bar to shoot

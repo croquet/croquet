@@ -7,7 +7,7 @@ This tutorial will guide you through building a complete multiplayer game:
 [🕹️ CLICK HERE TO PLAY 🕹️](https://croquet.github.io/multiblaster-tutorial/step9.html) – _then scan the QR code or share the generated session URL to invite other players._
 
 Each HTML file in [this repository](https://github.com/croquet/multiblaster-tutorial/)
-contains an increasingly complete multiplayer game built using [Croquet](https://croquet.io/docs/croquet/).
+contains an increasingly complete multiplayer game built using [Croquet](https://github.com/croquet/croquet).
 
 It's a 2D game, and its visuals are intentionally kept simple so that the code is more understandable.
 
@@ -17,6 +17,8 @@ Players steer their ships by firing thrusters (left, right and forward).
 They can also shoot blasts which cause asteroids to break up and vanish.
 Successful blasts increase the player's score, while colliding with an asteroid
 causes a ship to be destroyed and lose all points.
+
+**📖 Please use our [Documentation](https://multisynq.io/docs/croquet/) alongside this tutorial, and join our [Discord](https://multisynq.io/discord) for questions 🤔**
 
 ## Step 0: Asteroids floating without Croquet 🪨≠🪨
 
@@ -88,15 +90,24 @@ It also needs an API key. You should fetch your own key from [multisynq.io/coder
 
 This version has only 20 lines more than the non-Croquet one from step 0.
 
-Notice that the computation looks exactly the same, no special data structures need to be used,
-all models are synchronized between machines without any special markup.
+Notice that the computation looks exactly the same.
+_No special data structures need to be used._
+All models are synchronized between machines without any special markup.
 
 ```js
-move() {
-    this.x = (this.x + this.dx + 1000) % 1000;
-    this.y = (this.y + this.dy + 1000) % 1000;
-    this.a = (this.a + this.da + Math.PI) % Math.PI;
-    this.future(50).move();
+class Asteroid extends Croquet.Model {
+
+    ...
+
+    move() {
+        this.x = (this.x + this.dx + 1000) % 1000;
+        this.y = (this.y + this.dy + 1000) % 1000;
+        this.a = (this.a + this.da + Math.PI) % Math.PI;
+        this.future(50).move();
+    }
+
+    ...
+
 }
 ```
 
@@ -105,31 +116,38 @@ The only new construct is the line
 this.future(50).move();
 ```
 inside of the `move()` method. This causes `move()` to be called again 50 ms in the future,
-similarly to the `timeout()` call in step 0. Future messages are how you define an object's behavior over
-time in Croquet.
+similarly to the `timeout()` call in step 0.
+_Future messages are how you define an object's behavior over time in Croquet._
 
 Drawing happens exactly the same as in the non-Croquet case:
 
 ```js
-for (const asteroid of this.model.asteroids) {
-    const { x, y, a, size } = asteroid;
-    this.context.save();
-    this.context.translate(x, y);
-    this.context.rotate(a);
-    this.context.beginPath();
-    this.context.moveTo(+size,  0);
-    this.context.lineTo( 0, +size);
-    this.context.lineTo(-size,  0);
-    this.context.lineTo( 0, -size);
-    this.context.closePath();
-    this.context.stroke();
-    this.context.restore();
+class Display extends Croquet.View {
+
+    ...
+
+    update() {
+        ...
+        for (const asteroid of this.model.asteroids) {
+            const { x, y, a, size } = asteroid;
+            this.context.save();
+            this.context.translate(x, y);
+            this.context.rotate(a);
+            this.context.beginPath();
+            this.context.moveTo(+size,  0);
+            this.context.lineTo( 0, +size);
+            this.context.lineTo(-size,  0);
+            this.context.lineTo( 0, -size);
+            this.context.closePath();
+            this.context.stroke();
+            this.context.restore();
+        }
+    }
 }
 ```
 
-Notice that the view's `update()` method can read the asteroid positions directly from the model
-for drawing. Unlike in server-client computing, these positions do not need to be transmitted
-via the network. They are already available locally.
+Notice that the view's `update()` method can read the asteroid positions directly from the model for drawing.
+_Unlike in server-client computing, these positions do not need to be transmitted via the network._ They are already available locally.
 
 However, you must take care to not accidentally modify any model properties directly,
 because that would break the synchronization. See the next step for how to interact with the model.
@@ -145,6 +163,8 @@ For each player joining, another spaceship is created by subscribing to the sess
 `view-join` and `view-exit` events:
 
 ```js
+class Game extends Croquet.Model {
+
     init() {
         ...
         this.ships = new Map();
@@ -162,33 +182,39 @@ For each player joining, another spaceship is created by subscribing to the sess
         this.ships.delete(viewId);
         ship.destroy();
     }
+
+    ...
 ```
 Each ship subscribes to that player's input only, using the player's `viewId` as an event scope.
 This is how the shared model can distinguish events sent from different user's views:
 
 ```js
-init({ viewId }) {
+class Ship extends Croquet.Model {
+
+    init({ viewId }) {
+        ...
+        this.left = false;
+        this.right = false;
+        this.forward = false;
+        this.subscribe(viewId, "left-thruster", this.leftThruster);
+        this.subscribe(viewId, "right-thruster", this.rightThruster);
+        this.subscribe(viewId, "forward-thruster", this.forwardThruster);
+        this.move();
+    }
+
+    leftThruster(active) {
+        this.left = active;
+    }
+
+    rightThruster(active) {
+        this.right = active;
+    }
+
+    forwardThruster(active) {
+        this.forward = active;
+    }
+
     ...
-    this.left = false;
-    this.right = false;
-    this.forward = false;
-    this.subscribe(viewId, "left-thruster", this.leftThruster);
-    this.subscribe(viewId, "right-thruster", this.rightThruster);
-    this.subscribe(viewId, "forward-thruster", this.forwardThruster);
-    this.move();
-}
-
-leftThruster(active) {
-    this.left = active;
-}
-
-rightThruster(active) {
-    this.right = active;
-}
-
-forwardThruster(active) {
-    this.forward = active;
-}
 ```
 
 The ship's `move()` method uses the stored thruster values to accelerate or rotate the ship:
@@ -198,9 +224,11 @@ move() {
     if (this.forward) this.accelerate(0.5);
     if (this.left) this.a -= 0.2;
     if (this.right) this.a += 0.2;
-    ...
-}
+    this.x = ...
+    this.y = ...
 ```
+
+Again, the ship's new rotation `a` and position `x,y` _do not need to be published to other players._ This computation happens synchronized on each player's machine, based on the `left`, `right`, and `forward` properties that were set via the following thruster events.
 
 In the local view, key up and down events of the arrow keys publish the events to enable and disable the thrusters:
 
@@ -292,6 +320,21 @@ mainLoop() {
     this.checkCollisions();
     this.future(50).mainLoop();
 }
+
+checkCollisions() {
+    for (const asteroid of this.asteroids) {
+        const minx = asteroid.x - asteroid.size;
+        const maxx = asteroid.x + asteroid.size;
+        const miny = asteroid.y - asteroid.size;
+        const maxy = asteroid.y + asteroid.size;
+        for (const blast of this.blasts) {
+            if (blast.x > minx && blast.x < maxx && blast.y > miny && blast.y < maxy) {
+                asteroid.hitBy(blast);
+                break;
+            }
+        }
+    }
+}
 ```
 
 When an asteroid was hit by a blast, it shrinks itself and changes direction perpendicular to the shot.
@@ -312,6 +355,10 @@ hitBy(blast) {
     blast.destroy();
 }
 ```
+
+The remarkable thing about this code is how unremarkable it is.
+There is nothing "fancy" required of the programmer, it reads almost the same as if it were a single-player game.
+And there is no network congestion even if hundreds of blasts are moving because their positions are never sent over the network.
 
 ## Step 5: Turn ship into debris after colliding with asteroids 🚀➡💥
 
@@ -469,10 +516,6 @@ in animation quality.
 ([full source code](https://github.com/croquet/multiblaster-tutorial/blob/main/step8.html))
 ([run it](https://croquet.github.io/multiblaster-tutorial/step8.html))
 
-_**Note:** As of Croquet 1.1 (March 2024), persistence is still an unofficial feature.
-We do not guarantee that the API won't change, or make any assurances as to how long the
-persisted data will be stored._
-
 Now we add a persistent highscore. Croquet automatically snapshots the model data and
 keeps that session state even when everyone leaves the session. When you resume it later by joining the session, everything will continue just as before. That means a highscore table in the model would appear to be "persistent".
 
@@ -618,4 +661,8 @@ There's an even more polished game with some gimmicks at
 
 One of its gimmicks is that if the initials contain an emoji, it will be used for shooting. The trickiest part of that is properly parsing out the emoji, which can be composed of many code points 😉
 
-You can play it online at [croquet.io/multiblaster](https://croquet.io/multiblaster/).
+You can play it online at [apps.multisynq.io/multiblaster](https://apps.multisynq.io/multiblaster/).
+
+## Further Information 👀
+
+Please use our [Documentation](https://multisynq.io/docs/croquet/) alongside this tutorial, and join our [Discord](https://multisynq.io/discord) for questions!
