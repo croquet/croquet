@@ -16,11 +16,11 @@ _(you can run your own server too but by default the client uses the global Mult
 
 You can also use the Croquet pre-bundled files, e.g. via a script tag
 
-    <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@2.0.0-47/pub/croquet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@2.0.0/pub/croquet.min.js"></script>
 
 or via direct import as a module
 
-    import * as Croquet from "https://cdn.jsdelivr.net/npm/@croquet/croquet@2.0.0-47/pub/croquet.esm.js";
+    import * as Croquet from "https://cdn.jsdelivr.net/npm/@croquet/croquet@2.0.0/pub/croquet.esm.js";
 
 Structure your app into a synchronized part (subclassed from `Croquet.Model`) and a local part interacting with it (subclassed from `Croquet.View`). Uses `Croquet.Session.join()` with your API key to join a session.
 

@@ -21,7 +21,7 @@ _(you can also run your own server but you won't get the benefit of automatic gl
 Croquet runs fine without a bundler. Just put it in a script tag:
 ```HTML
 <meta charset="utf-8">
-<script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@CROQUET_VERSION/pub/croquet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@@CROQUET_VERSION@/pub/croquet.min.js"></script>
 ```
 This makes `Croquet` globally available. The `charset="utf-8"` declaration is necessary to get identical code hashing across browsers.
 

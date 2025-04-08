@@ -15,7 +15,7 @@ Following is a full example of the Data API.
     <head>
         <meta charset="utf-8">
         <title>Data + Persistence Example</title>
-        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@1.1.0"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@croquet/croquet@@CROQUET_VERSION@""></script>
     </head>
     <body style="background-color: #666; background-size: contain; background-repeat: no-repeat; background-position: center;" onclick="imageinput.click()">
         <input id="imageinput" type="file" accept="image/*" style="display:none;">
