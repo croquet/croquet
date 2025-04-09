@@ -36,15 +36,9 @@
     <body>
         <div id="overlay"></div>
         <script>
-            let connectedFrames = 0;
-            let totalUsers = 0;
             window.onmessage = evt => {
-                const { connected, users } = evt.data;
-                if (connected) connectedFrames += connected;
-                if (users) totalUsers = users;
-                //Workaround: connectedFrames count is not correct
-                // overlay.innerText = `${connectedFrames}/${totalUsers}`;
-                overlay.innerText = `${totalUsers}`;
+                const { users } = evt.data;
+                if (users) overlay.innerText = users;
             };
             function setCount(n, delta) {
                 const iframes = Array.from(document.getElementsByTagName("iframe"));
@@ -54,10 +48,7 @@
                     document.body.removeChild(iframes.pop());
                     window.onmessage({ data: { connected: -1 } });
                 }
-                const src = window.location.search.slice(1)
-                    || (process.env.NODE_ENV === "development"
-                        ? "2d.html?nodock&nomessages&q=MANY"
-                        : "../2d/?nodock&nomessages&q=MANY");
+                const src = window.location.search.slice(1);
                 while (iframes.length < n) {
                     const iframe = document.createElement("iframe");
                     iframe.src = src;
@@ -85,6 +76,9 @@
             window.onkeydown = evt => {
                 if (evt.key === '=') setCount(0, +1);
                 if (evt.key === '-') setCount(0, -1);
+            }
+            if (!window.location.search) {
+                window.location.search = `2d.html?nodock&nomessages&q=${(Math.random() * 2**53).toString(36)}`;
             }
             window.onhashchange();
         </script>

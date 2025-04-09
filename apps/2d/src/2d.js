@@ -288,7 +288,8 @@ async function go() {
 
             session.view.showStatus(controller.backlog, controller.starvation, 100, 3000);
 
-            if (users !== controller.users) {
+            // if we are running in "many.html" send the # of users to it
+            if (window.top !== window && users !== controller.users) {
                 users = controller.users;
                 window.top.postMessage({ users }, "*");
             }
