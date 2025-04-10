@@ -1579,25 +1579,24 @@ async function startServerForDePIN() {
                     {
                         id: shortSessionId1,
                         comms: {
-                            joins,
-                            totalJoins,
-                            messagesIn,
-                            totalMessagesIn,
-                            bytesIn,
-                            totalBytesIn,
-                            bytesOut,
-                            totalBytesOut,
-                            totalSnapshots
+                            joins [j],
+                            totalJoins [tj],
+                            messagesIn [mi],
+                            totalMessagesIn [tmi],
+                            bytesIn [bi],
+                            totalBytesIn [tbi],
+                            bytesOut [bo],
+                            totalBytesOut [tbo],
                         },
                         runner: {
-                            latency?: { avg, min, max }, // if any to report
+                            latency? [l]: { avg, min, max }, // if any to report
                             backlog?, // number of unsent update chunks, if non-zero
                         },
                         clients?: [
                             {
                                 id: shortClientId1,
                                 conn: { c, s },
-                                latency?: { avg, min, max } // if any to report
+                                latency? [l]: { avg, min, max } // if any to report
                             },
                             { id: shortClientId2... }
                         ]
@@ -1623,7 +1622,7 @@ async function startServerForDePIN() {
             let runnerRecord;
             if (runner.latency.count) {
                 const avg = Math.round(runner.latency.sum / runner.latency.count);
-                runnerRecord = { latency: { avg, min: runner.latency.min, max: runner.latency.max } };
+                runnerRecord = { l: { avg, min: runner.latency.min, max: runner.latency.max } };
                 runner.latency = { min: null, max: null, count: 0, sum: 0 };
             }
             const backlog = session.updateTracker.updateBuffer.length;
@@ -1635,14 +1634,16 @@ async function startServerForDePIN() {
 
             const island = ALL_ISLANDS.get(id);
             if (island) {
+                const types = { host: 'h', srflx: 's', prflx: 'p', relay: 'r' };
                 const clientRecords = [];
                 for (const client of island.clients) {
-                    const { iceMS, connectionType: conn, latency, meta } = client;
+                    const { iceMS, connectionType, latency, meta } = client;
+                    const conn = { c: types[connectionType.c] || '', s: types[connectionType.s] || '' }; // abbreviate
                     const { shortId: id } = meta;
                     const clientRecord = { id, ice_s: (iceMS / 1000).toFixed(1), conn };
                     if (latency.count) {
                         const avg = Math.round(latency.sum / latency.count);
-                        clientRecord.latency = { avg, min: latency.min, max: latency.max };
+                        clientRecord.l = { avg, min: latency.min, max: latency.max };
                         client.latency = { min: null, max: null, count: 0, sum: 0 };
                     }
                     clientRecords.push(clientRecord);
