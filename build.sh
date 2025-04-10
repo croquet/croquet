@@ -61,7 +61,7 @@ done
 
 # Create the index.html file
 echo
-echo "👷‍♀️ Creating index.html..."
+echo "👷‍♀️ Creating _site/index.html..."
 cat <<__EOF__ > _site/index.html
 <!DOCTYPE html>
 <html lang="en">
