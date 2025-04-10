@@ -1,6 +1,6 @@
 {
   "name": "@croquet/reflector",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "A Croquet reflector, keeping Croquet clients in synq",
   "main": "reflector.js",
   "repository": {
