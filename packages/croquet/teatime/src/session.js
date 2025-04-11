@@ -313,6 +313,15 @@ export class Session {
             get latencies() { return controller.latencies; },
         };
 
+        if ( typeof __CROQUET_DEVTOOLS__ !== 'undefined' ) {
+            __CROQUET_DEVTOOLS__.dispatchEvent(new CustomEvent('session', {
+                detail: {
+                    session,
+                    controller,
+                }
+            }));
+        }
+
         const sessionSpec = {
             options,
             /** executed inside the vm to initialize session */
