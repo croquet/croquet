@@ -1,4 +1,5 @@
 import { cleandir } from 'rollup-plugin-cleandir';
+import sourcemaps from 'rollup-plugin-sourcemaps';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
 import terser from '@rollup/plugin-terser';
@@ -15,6 +16,7 @@ export default {
     },
     plugins: [
         cleandir('dist'),
+        sourcemaps(),
         resolve({browser:true}), // tells Rollup how to resolve stuff in node_modules
         commonjs(), // converts all modules to ES modules
         terser(),
