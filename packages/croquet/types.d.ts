@@ -954,6 +954,8 @@ declare module "@croquet/croquet" {
 
     export var Constants: object;
 
+    export const VERSION: string;
+
     interface IApp {
 	sessionURL:string;
 	root:HTMLElement|null;
