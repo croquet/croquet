@@ -73,27 +73,25 @@ class Model {
      *     There are no system-defined `options`, you're free to define your own.
      * @param {Object=} persistentData - passed to [init()]{@link Model#init}, if provided.
      */
-    static create(options, persistentData, modelRootName) {
+    static create(...options) {
+        // we actuall pass all options to init(), but we leave the type declaration
+        // with only two arguments to match what the root model gets
         if (!hasID(this)) throw Error(`Model class "${this.name}" not registered`);
         const ModelClass = this;
         const model = this.createNoInit();
-        if (typeof persistentData === "string") {
-            console.warn(`Croquet: Model.create(..., "${persistentData}") with a well-known name argument is deprecated!`);
-            model.beWellKnownAs(persistentData);
-            persistentData = undefined;
-        }
         // register root model before calling its init() so
         // that other models created in init() can look it up
-        if (modelRootName) {
-            model.beWellKnownAs(modelRootName);
-        }
-        // set up event log subscriptions before user subscriptions
-        if (modelRootName === "modelRoot" && model.__realm.vm.debugEvents) {
-            this.eventDebugInit(model);
+        const beModelRoot = !this.wellKnownModel("modelRoot");
+        if (beModelRoot) {
+            model.beWellKnownAs("modelRoot");
+            // set up event log subscriptions before user subscriptions
+            if (model.__realm.vm.debugEvents) {
+                this.eventDebugInit(model);
+            }
         }
         // now call user init
         SuperInitNotCalled.add(model);
-        model.init(options, persistentData);
+        model.init(...options);
         if (SuperInitNotCalled.has(model)) {
             SuperInitNotCalled.delete(model);
             // only warn about deep subclasses

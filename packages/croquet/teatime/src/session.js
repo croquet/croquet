@@ -316,7 +316,7 @@ export class Session {
         const sessionSpec = {
             options,
             /** executed inside the vm to initialize session */
-            initFn: (opts, persistentData) => ModelRoot.create(opts, persistentData, "modelRoot"),
+            initFn: (opts, persistentData) => ModelRoot.create(opts, persistentData),
             /** called by controller when leaving the session */
             rebootModelView
         };
