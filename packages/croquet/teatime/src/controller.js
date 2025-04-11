@@ -1467,7 +1467,12 @@ export default class Controller {
                         // accumulated ticks and events from the reflector to be ingested.
                         // this will work even in cases where setTimeout(0) would not.
                         let runAgain = true;
-                        if (this.vm.time === this.reflectorTime) {
+                        if (!this.vm) {
+                            if (DEBUG.session) console.log(this.id, "disconnected during SYNC fast-forwarding");
+                            reportProgress(-1); // failure
+                            resolve(false);
+                            runAgain = false;
+                        } else if (this.vm.time === this.reflectorTime) {
                             if (this.viewId in this.vm.views) {
                                 reportProgress(1); // success
                                 resolve(true);
