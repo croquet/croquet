@@ -15,7 +15,7 @@ Please join the Multisynq [**Developer Discord**](https://multisynq.io/discord/)
 
 # Quickstart
 
-**_First, get a free Multisynq API key from [multisynq.io/coders](https://multisynq.io/coders/)_**
+**_First, get a free Multisynq API key from [multisynq.io/coder](https://multisynq.io/coder/)_**
 _(you can also run your own server but you won't get the benefit of automatic global scaling)_
 
 Croquet runs fine without a bundler. Just put it in a script tag:
@@ -91,7 +91,7 @@ You then join a session by calling [Session.join()]{@link Session.join} and pass
 You do need to provide some session meta data, like your API key, an appId, session name, and a password. Below we use `autoSession`/`autoPassword` but you can instead use whatever makes most sense for your app. In the tutorials we even often use constants for all, but you should not do that in production because it wouldn't be end-to-end encrypted anymore if the password is known.
 
 ```JS
-const apiKey = "your_api_key"; // paste from multisynq.io/coders
+const apiKey = "your_api_key"; // paste from multisynq.io/coder
 const appId = "com.example.myapp";
 const name = Croquet.App.autoSession();
 const password = Croquet.App.autoPassword();
