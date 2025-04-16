@@ -2725,8 +2725,10 @@ class Connection {
             // but also wait 500 ms to see if reconnect succeeded
             setTimeout(() => {
                 if (this.connected || this.socket?.isConnecting?.()) return; // yay - connected again
-                App.showMessage(`Connection closed: ${code} ${message}`, {
-                    level: autoReconnect ? "error" : "fatal",
+
+                const reportMsg = autoReconnect ? "Reconnecting" : "Connection closed";
+                App.showMessage(`${reportMsg}: ${code} ${message}`, {
+                    level: autoReconnect ? "warning" : "fatal",
                 });
             }, 500);
         }
