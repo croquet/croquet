@@ -1,0 +1,5 @@
+{
+    "singleLine": true,
+    "translateTime": true,
+    "ignore": "severity,scope,hostIp,sessionName,persistentId,codeHash,apiKey,developerId,flags,url,sdk,connection,user,event,code,reason,resumed,allArgs,token,sessionCount,connectedFor,tick,method,t,seq,joinedCount,leftCount,activeCount,clientCount,allSessionCount,allClientCount,data,what,msgCount,bytes"
+}

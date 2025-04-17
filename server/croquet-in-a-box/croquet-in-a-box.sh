@@ -41,6 +41,8 @@ cat > build/Dockerfile <<-EOF
 FROM node:18-alpine
 WORKDIR /usr/src/reflector
 COPY package*.json reflector.js .pino-prettyrc ./
+RUN apk add --update python3 make g++\
+   && rm -rf /var/cache/apk/*
 RUN npm ci \
     && echo "#!/bin/sh" > reflector.sh \
     && echo "node reflector.js $REFLECTOR_ARGS | npx pino-pretty" >> reflector.sh \
