@@ -39,14 +39,16 @@ rm -rf build/node_modules
 
 cat > build/Dockerfile <<-EOF
 FROM node:18-alpine
+RUN apk add --update python3 make g++\
+   && rm -rf /var/cache/apk/*
 WORKDIR /usr/src/reflector
-COPY package*.json reflector.js .pino-prettyrc ./
+COPY *.json *.js ./
 RUN npm ci \
     && echo "#!/bin/sh" > reflector.sh \
     && echo "node reflector.js $REFLECTOR_ARGS | npx pino-pretty" >> reflector.sh \
     && chmod +x reflector.sh
 ENV LOG_LEVEL=info
-ENV CLUSTER_LABEL=somewhere
+ENV CLUSTER_LABEL=CroquetInABox
 EXPOSE 9090
 CMD [ "./reflector.sh" ]
 EOF
