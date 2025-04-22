@@ -35,10 +35,6 @@ const PROTOCOL_VERSION = 1;
 export const CROQUET_VERSION = croquet_build_process.env.CROQUET_VERSION || "<unknown>";
 const NODE = croquet_build_process.env.CROQUET_PLATFORM === "node";
 
-// Node and codepen cannot deal with styled console output
-if (NODE || window.location.hostname.match(/co?de?pe?n\.io/)) console.log("Croquet " + CROQUET_VERSION);
-else console.log("%cCroquet%c %c" + CROQUET_VERSION, "color:#F0493E", "color:inherit", `color:${CROQUET_VERSION.includes('+') ? "#909" : "inherit"}`);
-
 // use dev reflectors for pre-release SDKs, unless dev=false given
 // (only needed for periods when code changes below require dev reflectors,
 // comment out once deployed to production reflectors)
@@ -61,7 +57,13 @@ export const OLD_DATA_SERVER = OLD_DOWNLOAD_SERVER;
 
 let DEBUG = null;
 
+function logVersion() {
+    if (NODE) console.log("Croquet " + CROQUET_VERSION);
+    else console.log("%cCroquet%c %c" + CROQUET_VERSION, "color:#F0493E", "color:inherit", `color:${CROQUET_VERSION.includes('+') ? "#909" : "inherit"}`);
+}
+
 function initOptions() {
+    if (!globalThis.__MULTISYNQ__) logVersion();
     // to capture whatever was passed to the latest Session.join({debug:...})
     // call we simply redo this every time establishSession() is called
     // TODO: turn this into a reasonable API
@@ -177,7 +179,7 @@ function initDEPIN(defaultToDEPIN) {
         DEPIN_API = DEPIN_API.replace(/^http(s):/, 'ws$1:');
         if (!DEPIN_API.startsWith('ws')) DEPIN_API = (!NODE && window.location.protocol === 'https:' ? 'wss://' : 'ws://') + DEPIN_API;
         REFL_OR_SYNCH = "synchronizer";
-        console.log(`DEPIN_API=${DEPIN_API}`);
+        if (DEBUG.session) console.log(`DEPIN_API=${DEPIN_API}`);
     } else {
         DEPIN = false;
     }
