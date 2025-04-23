@@ -1,3 +1,5 @@
+import { App } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
+
 const VOTE_SUFFIX = '#__vote'; // internal, for 'vote' handling; never seen by user
 
 /** A domain manages subscriptions */
@@ -106,7 +108,7 @@ export class Domain {
                     const remaining = removeHandlers(handlers, subscriberId);
                     if (remaining === "none") delete this.subscriptions[topic];
                 } else {
-                    console.error(`Croquet: topic ${topic} not found in subscriptions table for ${subscriberId} during removeAllSubscriptionsFor()`);
+                    console.error(`${App.libName}: topic ${topic} not found in subscriptions table for ${subscriberId} during removeAllSubscriptionsFor()`);
                 }
             }
             this.subscribers.delete(subscriberId);
@@ -186,7 +188,7 @@ export class Domain {
                         try { handler(data); }
                         catch (err) {
                             console.error(err);
-                            console.warn(`Croquet: error "${err.message}" in "immediate" subscription ${currentEvent}`);
+                            console.warn(`${App.libName}: error "${err.message}" in "immediate" subscription ${currentEvent}`);
                         }
                         this.currentEvent = prevEvent;
                         this.currentEventFromModel = prevEventFromModel;
@@ -220,7 +222,7 @@ export class Domain {
                     try { handler(data); }
                     catch (err) {
                         console.error(err);
-                        console.warn(`Croquet: error "${err.message}" in "${handling}" subscription ${topic}`);
+                        console.warn(`${App.libName}: error "${err.message}" in "${handling}" subscription ${topic}`);
                     }
                     n++;
                 }

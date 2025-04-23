@@ -14,7 +14,7 @@ import VirtualMachine from "./vm";
 const NODE = croquet_build_process.env.CROQUET_PLATFORM === 'node';
 
 export function deprecatedStartSession(...args) {
-    App.showMessage("Croquet.startSession() is deprecated, please use Croquet.Session.join()", { level: "warning", only: "once"});
+    App.showMessage(`${App.libName}.startSession() is deprecated, please use ${App.libName}.Session.join()`, { level: "warning", only: "once"});
     return Session.join(...args);
 }
 
@@ -165,10 +165,6 @@ export class Session {
     }
 
     static async join_impl(parameters) {
-        // old API: join(name, ModelRoot=Model, ViewRoot=View, parameters)
-        if (typeof parameters !== "object") {
-            throw Error(`Croquet: please use new Session.join( {apiKey, ...} ) API. See https://croquet.io/docs/croquet/Session.html#.join`);
-        }
         // defaults
         if (!parameters.appId) parameters.appId = 'no.appId'; // must match warning in VM.persist()
         if (!parameters.name) { // auto password only if no name given
@@ -190,27 +186,27 @@ export class Session {
         function inherits(A, B) { return A === B || A.prototype instanceof B; }
         // check apiKey if no box is given
         if (parameters.box) {
-            if (typeof parameters.box !== "string") throw Error("Croquet: box must be a string in Session.join()!");
-            if (!parameters.box.includes('/')) throw Error("Croquet: box must be a (partial) URL in Session.join()!");
+            if (typeof parameters.box !== "string") throw Error(`${App.libName}: box must be a string in Session.join()!`);
+            if (!parameters.box.includes('/')) throw Error(`${App.libName}: box must be a (partial) URL in Session.join()!`);
         } else if (!parameters.reflector || !parameters.files) {
-            if (typeof parameters.apiKey !== "string") throw Error("Croquet: no apiKey provided in Session.join()!");
-            if (parameters.apiKey.length > 128) throw Error("Croquet: apiKey > 128 characters in Session.join()!");
+            if (typeof parameters.apiKey !== "string") throw Error(`${App.libName}: no apiKey provided in Session.join()!`);
+            if (parameters.apiKey.length > 128) throw Error(`${App.libName}: apiKey > 128 characters in Session.join()!`);
         }
         // sanitize name
-        if (typeof parameters.name !== "string") throw Error("Croquet: no session name provided in Session.join()!");
-        if (parameters.name.length > 128) throw Error("Croquet: session name > 128 characters in Session.join()!");
+        if (typeof parameters.name !== "string") throw Error(`${App.libName}: no session name provided in Session.join()!`);
+        if (parameters.name.length > 128) throw Error(`${App.libName}: session name > 128 characters in Session.join()!`);
         // must pass a model
         const ModelRoot = parameters.model;
-        if (typeof ModelRoot !== "function" || !inherits(ModelRoot, Model)) throw Error("Croquet: bad model class in Session.join()");
+        if (typeof ModelRoot !== "function" || !inherits(ModelRoot, Model)) throw Error(`${App.libName}: bad model class in Session.join()`);
         // view defaults to View
         const ViewRoot = parameters.view || View;
-        if (typeof ViewRoot !== "function" || !inherits(ViewRoot, View)) throw Error("Croquet: bad view class in Session.join()");
+        if (typeof ViewRoot !== "function" || !inherits(ViewRoot, View)) throw Error(`${App.libName}: bad view class in Session.join()`);
         // check appId
-        if (typeof parameters.appId !== "string") throw Error("Croquet: no appId provided in Session.join()");
-        if (!parameters.appId.length > 128) throw Error("Croquet: appId > 128 characters in Session.join()");
-        if (!parameters.appId.match(/^[a-z](-?[a-z0-9_])*(\.[a-z0-9_](-?[a-z0-9_])*)+$/i)) throw Error("Croquet: malformed appId in Session.join()");
+        if (typeof parameters.appId !== "string") throw Error(`${App.libName}: no appId provided in Session.join()`);
+        if (!parameters.appId.length > 128) throw Error(`${App.libName}: appId > 128 characters in Session.join()`);
+        if (!parameters.appId.match(/^[a-z](-?[a-z0-9_])*(\.[a-z0-9_](-?[a-z0-9_])*)+$/i)) throw Error(`${App.libName}: malformed appId in Session.join()`);
         // check password
-        if (typeof parameters.password !== "string" || !parameters.password) throw Error("Croquet: no password provided in Session.join()");
+        if (typeof parameters.password !== "string" || !parameters.password) throw Error(`${App.libName}: no password provided in Session.join()`);
         // ensure that certain parameters that can be specified as parameters or url
         // options are in the urlOptions object that gets checked in controller.js
         for (const key of ['reflector', 'synchronizer', 'files', 'backend', 'box']) {
@@ -382,7 +378,7 @@ export class Session {
             if (session.view) {
                 if (urlOptions.has("debug", "session", false)) console.log(session.id, 'detaching root view');
                 session.view.detach();
-                if (session.view.id !== "") console.warn(`Croquet: ${session.view} did not call super.detach()`);
+                if (session.view.id !== "") console.warn(`${App.libName}: ${session.view} did not call super.detach()`);
                 session.view = null;
             }
             App.clearSessionMoniker();

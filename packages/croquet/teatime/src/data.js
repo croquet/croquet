@@ -3,6 +3,7 @@ import WordArray from "crypto-js/lib-typedarrays";
 import Base64 from "crypto-js/enc-base64";
 import SHA256 from "crypto-js/sha256";
 import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
+import { App } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import VirtualMachine from "./vm";
 import { sessionProps, OLD_DATA_SERVER } from "./controller";
 
@@ -107,7 +108,7 @@ class Data {
     async fetch() { throw Error("Data.fetch() needs to be called from session.data"); }
 
     static async store(data, options, deprecatedKeep) {
-        if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.store() called from Model code");
+        if (VirtualMachine.hasCurrent()) throw Error(`${App.libName}.Data.store() called from Model code`);
         let sessionId, shareable, keep;
         // signature used to be (sessionId, data, optionalKeep) and only shareable
         if (typeof data === "string") {
@@ -120,17 +121,17 @@ class Data {
             shareable = options && options.shareable;
             keep = options && options.keep;
         }
-        if (!(data instanceof ArrayBuffer)) throw Error("Croquet.Data.store() called with non-ArrayBuffer data");
+        if (!(data instanceof ArrayBuffer)) throw Error(`${App.libName}.Data.store() called with non-ArrayBuffer data`);
 
         const { appId, persistentId, key: sessionKey, uploadEncrypted } = sessionProps(sessionId);
         const key = shareable ? WordArray.random(32).toString(Base64) : Base64.stringify(sessionKey);
         const path = `apps/${appId}/${persistentId}/data/%HASH%`; // %HASH% will be replaced by uploadEncrypted()
         const what = `data#${++fetchCount}`;
-        if (debug("data")) console.log(`Croquet.Data: storing ${what} ${data.byteLength} bytes`);
+        if (debug("data")) console.log(`${App.libName}.Data: storing ${what} ${data.byteLength} bytes`);
         const url = await uploadEncrypted({ path, content: data, key, keep, debug: debug("data"), what });
         const hash = hashFromUrl(url);
         const handle = new DataHandle(hash, shareable && key, url);
-        if (debug("data")) console.log(`Croquet.Data: stored ${what} as ${this.toId(handle)}`);
+        if (debug("data")) console.log(`${App.libName}.Data: stored ${what} as ${this.toId(handle)}`);
         return handle;
 
         // TODO: publish events and handle in vm to track assets even if user code fails to do so
@@ -147,14 +148,14 @@ class Data {
         } else {
             sessionId = options && options.sessionId; // optional, sessionProps() will use any session
         }
-        if (VirtualMachine.hasCurrent()) throw Error("Croquet.Data.fetch() called from Model code");
+        if (VirtualMachine.hasCurrent()) throw Error(`${App.libName}.Data.fetch() called from Model code`);
         const  { downloadEncrypted, key: sessionKey } = sessionProps(sessionId);
         const hash = handle && handle[DATAHANDLE_HASH];
         const key = handle && handle[DATAHANDLE_KEY] || Base64.stringify(sessionKey);
         const url = handle && handle[DATAHANDLE_URL];
-        if (typeof hash !== "string" || typeof key !== "string" || typeof url !== "string" ) throw Error("Croquet.Data.fetch() called with invalid handle");
+        if (typeof hash !== "string" || typeof key !== "string" || typeof url !== "string" ) throw Error(`${App.libName}.Data.fetch() called with invalid handle`);
         const what = `data#${++fetchCount}`;
-        if (debug("data")) console.log(`Croquet.Data: fetching ${what} ${this.toId(handle)}`);
+        if (debug("data")) console.log(`${App.libName}.Data: fetching ${what} ${this.toId(handle)}`);
         return downloadEncrypted({ url, key, debug: debug("data"), what });
     }
 
@@ -176,7 +177,7 @@ class Data {
             case "hex": return result.toString();
             case "base64": return result.toString(Base64);
             case "base64url": return toBase64Url(result.toString(Base64));
-            default: throw Error(`Croquet.Data: unknown hash output "${output}", expected "hex"/"base64"/"base64url"`);
+            default: throw Error(`${App.libName}.Data: unknown hash output "${output}", expected "hex"/"base64"/"base64url"`);
         }
     }
 
@@ -219,7 +220,7 @@ class Data {
                 hash = url.slice(-43);
                 break;
             default:
-                throw Error(`Croquet.Data expected handle v0-v${MAXVERSION} got v${version}`);
+                throw Error(`${App.libName}.Data expected handle v0-v${MAXVERSION} got v${version}`);
         }
         return new this(hash, key, url);
     }
@@ -237,7 +238,7 @@ class Data {
         const hash = handle[DATAHANDLE_HASH];
         const key = handle[DATAHANDLE_KEY];
         const url = handle[DATAHANDLE_URL];
-        if (url.slice(-43) !== hash) throw Error("Croquet Data: malformed URL");
+        if (url.slice(-43) !== hash) throw Error(`${App.libName} Data: malformed URL`);
         // key is plain Base64, make it url-safe
         const encodedKey = key && toBase64Url(key);
         // the only reason for obfuscation here is so devs do not rely on any parts of the id
@@ -248,16 +249,16 @@ class Data {
     constructor(hash, key=null, url) {
         const existing = HandleCache.get(hash);
         if (existing) {
-            // if (debug("data")) console.log(`Croquet.Data: using cached handle for ${hash}`);
+            // if (debug("data")) console.log(`${App.libName}.Data: using cached handle for ${hash}`);
             return existing;
         }
-        if (url.slice(-43) !== hash) throw Error("Croquet Data: malformed URL");
+        if (url.slice(-43) !== hash) throw Error(`${App.libName} Data: malformed URL`);
         // stored under Symbol key to be invisible to user code
         Object.defineProperty(this, DATAHANDLE_HASH, { value: hash });
         if (key) Object.defineProperty(this, DATAHANDLE_KEY, { value: key });
         Object.defineProperty(this, DATAHANDLE_URL, { value: url });
         HandleCache.set(hash, this);
-        // if (debug("data")) console.log(`Croquet.Data: created new handle for ${hash}`);
+        // if (debug("data")) console.log(`${App.libName}.Data: created new handle for ${hash}`);
     }
 
     // no other methods - API is static

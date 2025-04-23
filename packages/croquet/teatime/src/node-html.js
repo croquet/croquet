@@ -30,6 +30,8 @@ export function displayAppError(where, error, level = "error") {
 }
 
 export const App = {
+    get libName() { return globalThis.__MULTISYNQ__ ? "Multisynq" : "Croquet"; },
+
     sessionURL: null,
     root: false, // root for messages, the sync spinner, and the info dock (defaults to document.body)
     sync: false, // whether to show the sync spinner while starting a session, or catching up
@@ -94,14 +96,14 @@ export const App = {
         // if not found, create random fragment
         else {
             fragment = Math.floor(Math.random() * 36**10).toString(36);
-            console.warn(`no Croquet session name provided, using "${fragment}"`);
+            console.warn(`no ${App.libName} session name provided, using "${fragment}"`);
         }
-        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.autoSession: "${fragment}"`);
+        if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.autoSession: "${fragment}"`);
         // return Promise for future-proofing
         const retVal = Promise.resolve(fragment);
         // warn about using it directly
         retVal[Symbol.toPrimitive] = () => {
-            console.warn(`Deprecated: Croquet.App.autoSession() return value used directly. It returns a promise now!`);
+            console.warn(`Deprecated: ${App.libName}.App.autoSession() return value used directly. It returns a promise now!`);
             return fragment;
         };
         return retVal;
@@ -114,14 +116,14 @@ export const App = {
         if (!password) {
             const buffer = require('crypto').randomBytes(16); // eslint-disable-line global-require
             password = toBase64url(buffer);
-            console.warn(`no Croquet session password provided, using "${password}"`);
+            console.warn(`no ${App.libName} session password provided, using "${password}"`);
         }
-        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.autoPassword: "${password}"`);
+        if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.autoPassword: "${password}"`);
         // return Promise for future-proofing
         const retVal = Promise.resolve(password);
         // warn about using it directly
         retVal[Symbol.toPrimitive] = () => {
-            console.warn(`Deprecated: Croquet.App.autoPassword() return value used directly. It returns a promise now!`);
+            console.warn(`Deprecated: ${App.libName}.App.autoPassword() return value used directly. It returns a promise now!`);
             return password;
         };
         return retVal;

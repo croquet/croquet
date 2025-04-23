@@ -3,7 +3,7 @@ import SeedRandom from "seedrandom/seedrandom";
 import "@croquet/math"; // creates globalThis.CroquetMath
 import PriorityQueue from "./priorityQueue";
 import { Stats } from "./_STATS_MODULE_"; // eslint-disable-line import/no-unresolved
-import { displayWarning, displayAppError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
+import { App, displayWarning, displayAppError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
 import Model from "./model";
 import { inModelRealm, inViewRealm } from "./realms";
@@ -35,7 +35,7 @@ export function propertyAccessor(object, property) {
 
 /** this shows up as "CroquetWarning" in the console */
 class CroquetWarning extends Error {}
-Object.defineProperty(CroquetWarning.prototype, "name", { value: "CroquetWarning" });
+Object.defineProperty(CroquetWarning.prototype, "name", { value: `${App.libName}Warning` });
 
 /** patch Math and Date */
 function patchBrowser() {
@@ -153,6 +153,11 @@ function compileQFunc(source, thisVal, env, selfRef) {
     // Make Croquet available if the word "Croquet" is found in the source
     if (source.match(/\bCroquet\b/) && !envKeys?.includes("Croquet")) {
         compilerParams.push("Croquet");
+        compilerArgs.push(Model.Croquet);
+    }
+    // Same for Multisynq
+    if (source.match(/\bMultisynq\b/) && !envKeys?.includes("Multisynq")) {
+        compilerParams.push("Multisynq");
         compilerArgs.push(Model.Croquet);
     }
     // use selfRef or an unused variant of "qFunc" as fnVar
@@ -535,17 +540,17 @@ export default class VirtualMachine {
                 if (prop) what += ` ${prop} of`;
                 const objPath = DEBUG_WRITE_PROXIES.get(obj).path;
                 console.warn(`write-debug: non-model code is ${what} ${objPath}:`, obj);
-                if (prop && prop[0] !== "$") throw Error("write-debug: Attempt to modify Croquet model state from outside!");
+                if (prop && prop[0] !== "$") throw Error(`write-debug: Attempt to modify ${App.libName} model state from outside!`);
             }
             this.$debugWriteProxyHandler = {
                 set(target, property, value) {
                     if (CurrentVM !== vm) writeError("assigning", target, property);
-                    else { console.warn("Croquet debug write protection inside model - this should not happen!"); }
+                    else { console.warn(`${App.libName} debug write protection inside model - this should not happen!`); }
                     target[property] = value;
                 },
                 deleteProperty(target, property) {
                     if (CurrentVM !== vm) writeError("deleting", target, property);
-                    else { console.warn("Croquet debug write protection inside model - this should not happen!"); }
+                    else { console.warn(`${App.libName} debug write protection inside model - this should not happen!`); }
                     delete target[property];
                 },
                 get(target, property) {
@@ -582,7 +587,7 @@ export default class VirtualMachine {
                             // (Array appears to work, it internally calls proxy.get() for e.g. slice())
                             return vm.debugWriteProxy(vm, value, targetPath + propertyAccessor(value, property));
                         }
-                    } else { console.warn("Croquet debug write protection inside model - this should not happen!"); }
+                    } else { console.warn(`${App.libName} debug write protection inside model - this should not happen!`); }
                     return value;
                 }
             };
@@ -1330,10 +1335,10 @@ export default class VirtualMachine {
     }
 
     persist(model, persistentDataFunc) {
-        if (this.controller && this.controller.sessionSpec.appId === 'no.appId') console.warn("Croquet: appId should be provided in Session.join() to not overwrite another apps's persistent data");
+        if (this.controller && this.controller.sessionSpec.appId === 'no.appId') console.warn(`${App.libName}: appId should be provided in Session.join() to not overwrite another apps's persistent data`);
         const start = Stats.begin("snapshot");
         const persistentData = typeof persistentDataFunc === "function" ? persistentDataFunc.call(model) : persistentDataFunc;
-        if (typeof persistentData !== "object") throw Error(`Croquet: persistSession() can only persist objects (got ${typeof persistentData})`);
+        if (typeof persistentData !== "object") throw Error(`${App.libName}: persistSession() can only persist objects (got ${typeof persistentData})`);
         const persistentString = stableStringify(persistentData);
         const persistentHash = Data.hash(persistentString);
         const ms = Stats.end("snapshot") - start;
@@ -1826,10 +1831,10 @@ class VMWriter {
         const isSpec = Object.getPrototypeOf(ClassOrSpec) === Object.prototype;
         const {cls, write} = isSpec ? ClassOrSpec : {cls: ClassOrSpec, write: obj => ({ ...obj })};
         // Object and Array are used by the serializer itself, can't override their serialization
-        if (cls === Object) throw Error(`Croquet types: '${classId}' is the Object class itself, must be a user class`);
-        if (cls === Array) throw Error(`Croquet types: '${classId}' is the Array class, must be a user class`);
+        if (cls === Object) throw Error(`${App.libName} types: '${classId}' is the Object class itself, must be a user class`);
+        if (cls === Array) throw Error(`${App.libName} types: '${classId}' is the Array class, must be a user class`);
         if (!write) {
-            if (!ClassOrSpec.writeStatic) console.warn(`Croquet types: ${classId} does not implement write() or writeStatic()`);
+            if (!ClassOrSpec.writeStatic) console.warn(`${App.libName} types: ${classId} does not implement write() or writeStatic()`);
             return;
         }
         this.writers.set(cls, (obj, path) => this.writeAs(classId, obj, write(obj), isSpec ? `${path}.write(${cls.name})` : path));
@@ -1943,17 +1948,17 @@ class VMWriter {
                         if (value instanceof Model) return this.writeModel(value, path);
                         if (value.constructor === Object || typeof value.constructor !== "function") return this.writeObject(value, path, defer);
                         // no writer has been registered for this class
-                        console.warn(`Croquet: unknown class at ${path}:`, value);
-                        throw Error(`Croquet: class not registered in Model.types(): ${value.constructor.name}`);
+                        console.warn(`${App.libName}: unknown class at ${path}:`, value);
+                        throw Error(`${App.libName}: class not registered in Model.types(): ${value.constructor.name}`);
                     }
                     case "Function":
                         if (value[QFUNC]) return this.writers.get(QFUNC)(value, path); // uses QFuncSpec
-                        console.warn(`Croquet: found function at ${path}:`, value);
-                        throw Error(`Croquet: cannot serialize functions except for QFuncs`);
+                        console.warn(`${App.libName}: found function at ${path}:`, value);
+                        throw Error(`${App.libName}: cannot serialize functions except for QFuncs`);
                     default: {
                         // no writer has been registered for this type
-                        console.warn(`Croquet: unsupported property at ${path}:`, value);
-                        throw Error(`Croquet: serialization of ${type}s is not supported`);
+                        console.warn(`${App.libName}: unsupported property at ${path}:`, value);
+                        throw Error(`${App.libName}: serialization of ${type}s is not supported`);
                     }
                 }
             }
@@ -2158,7 +2163,7 @@ class VMReader {
         let parsed = `${major}.${minor}`;
         if (patch) parsed += `.${patch}`;
         if (pre) parsed += `-${pre}`;
-        console.warn(`Croquet: reading snapshot version ${parsed}`);
+        console.warn(`${App.libName}: reading snapshot version ${parsed}`);
         // before 1.1.0-7, Maps were written as an arry of [key, value] pairs
         this.compatMaps = major < 1 || (major === 1 && (minor < 1 || (minor === 1 && patch < 7)));
     }
@@ -2502,7 +2507,7 @@ function warnMultipleSessionsStatic(kind, className) {
     if (sessions > 1) {
         displayWarning(`Static properties in shared ${kind} ${className} ` +
             `can lead to divergence because ${sessions} ` +
-            `Croquet sessions are running simultaneaously. Consider using ` +
+            `${App.libName} sessions are running simultaneaously. Consider using ` +
             `wellKnownModel() instead.`,
             { only: "once" });
     }

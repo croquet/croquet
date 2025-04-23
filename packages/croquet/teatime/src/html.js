@@ -752,6 +752,8 @@ const seenMessages = new Set();
 let _sessionURL = defaultSessionURL();
 
 export const App = {
+    get libName() { return globalThis.__MULTISYNQ__ ? "Multisynq" : "Croquet"; },
+
     get sessionURL() { return _sessionURL; },
     set sessionURL(url) { _sessionURL = url; displayQRCodeIfNeeded(); },
     root: null, // root for messages, the sync spinner, and the info dock (defaults to document.body)
@@ -881,12 +883,12 @@ export const App = {
             window.history.replaceState({}, "", href);
             App.sessionURL = href;
         }
-        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.autoSession: "${fragment}"`);
+        if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.autoSession: "${fragment}"`);
         // return Promise for future-proofing
         const retVal = Promise.resolve(fragment);
         // warn about using it directly
         retVal[Symbol.toPrimitive] = () => {
-            console.warn(`Deprecated: Croquet.App.autoSession() return value used directly. It returns a promise now!`);
+            console.warn(`Deprecated: ${App.libName}.App.autoSession() return value used directly. It returns a promise now!`);
             return fragment;
         };
         return retVal;
@@ -931,17 +933,17 @@ export const App = {
             // but scrub it from address bar
             if (scrub) url.hash = keyless ? '' : hash;
         }
-        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.sessionUrl: ${App.sessionURL}`);
+        if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.sessionUrl: ${App.sessionURL}`);
         // change url bar if needed
         if (window.location.href !== url.href) window.history.replaceState({}, "", url.href);
         // decode % entities if possible
         if (password) try { password = decodeURIComponent(password); } catch (ex) { /* ignore */ }
-        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.autoPassword: "${password}"`);
+        if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.autoPassword: "${password}"`);
         // return Promise for future-proofing
         const retVal = Promise.resolve(password);
         // warn about using it directly
         retVal[Symbol.toPrimitive] = () => {
-            console.warn(`Deprecated: Croquet.App.autoPassword() return value used directly. It returns a promise now!`);
+            console.warn(`Deprecated: ${App.libName}.App.autoPassword() return value used directly. It returns a promise now!`);
             return password;
         };
         return retVal;

@@ -1,4 +1,4 @@
-import { displayStatus, displayWarning, displayError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
+import { App, displayStatus, displayWarning, displayError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import { currentRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
@@ -53,7 +53,7 @@ class View {
      * @public
      */
     constructor(model) {
-        if (typeof model !== "object" || !("__realm" in model)) console.warn(`Croquet: argument to View constructor needs to be a Model`);
+        if (typeof model !== "object" || !("__realm" in model)) console.warn(`${App.libName}: argument to View constructor needs to be a Model`);
         let realm = currentRealm("");
         if (!realm || !realm.isViewRealm()) {
             realm = inViewRealm(model.__realm.vm, () => currentRealm(), true);

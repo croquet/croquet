@@ -1,3 +1,4 @@
+import { App } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
 
 const ICE_NEGOTIATION_MAX = 15_000; // maximum ms between sending our offer and the data channel being operational.  analogous to the controller's JOIN_FAILED_DELAY, between sending of JOIN and receipt of SYNC.
@@ -21,7 +22,7 @@ function getRandomString(length) {
 }
 
 export class CroquetWebRTCConnection {
-    static get name() { return 'CroquetWebRTCConnection'; }
+    static get name() { return `${App.libName}WebRTCConnection`; }
 
     constructor(registryURL) {
         this.clientId = getRandomString(4); // used locally to tag console messages for debug purposes; gets appended with a numeric id from SessionRunner on connection

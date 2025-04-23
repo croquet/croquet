@@ -83,7 +83,7 @@ function initOptions() {
         reflector: urlOptions.has("debug", "reflector", devOrCroquetIoDev), // use dev reflector
         offline: urlOptions.has("debug", "offline", false),                 // short-circuit all requests
     };
-    if (DEBUG.offline) App.showMessage("Croquet: offline mode enabled, no multiuser", { level: "warning"});
+    if (DEBUG.offline) App.showMessage(`${App.libName}: offline mode enabled, no multiuser`, { level: "warning"});
     if (urlOptions.box) {
         let url = new URL(urlOptions.box, window.location).href;
         if (!url.endsWith("/")) url += "/";
@@ -99,7 +99,7 @@ function setDebug(options={}) {
     }
     for (const [key, value] of Object.entries(options)) {
         if (key in DEBUG) DEBUG[key] = value;
-        else App.showMessage(`Croquet: unknown debug option "${key}"`, { level: "warning", only: "once" });
+        else App.showMessage(`${App.libName}: unknown debug option "${key}"`, { level: "warning", only: "once" });
     }
     return DEBUG;
 };
@@ -484,7 +484,7 @@ export default class Controller {
         const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, sessionParams, hashOverride, CROQUET_VERSION);
         if (!this.tove) this.tove = await this.encrypt(id);
         if (viewData && !this.viewDataEncrypted) this.viewDataEncrypted = await this.encryptPayload(viewData);
-        if (DEBUG.session) console.log(`Croquet session "${name}":
+        if (DEBUG.session) console.log(`${App.libName} session "${name}":
         sessionId=${id}${appId ? `
         persistentId=${persistentId}` : ""}
         versionId=${codeHash === computedCodeHash ? codeHash : `${codeHash} (specified in hashOverride)
@@ -1506,7 +1506,7 @@ export default class Controller {
                 delete this.fastForwardHandler;
                 if (success) {
                     if (DEBUG.session) console.log(this.id, `fast-forwarded to ${Math.round(this.vm.time)}`);
-                    if (this.vm.diverged) App.showMessage("Croquet: session had diverged. Try CROQUETVM.debugDiverged()", { level: "warning", only: "once" });
+                    if (this.vm.diverged) App.showMessage(`${App.libName}: session had diverged. Try CROQUETVM.debugDiverged()`, { level: "warning", only: "once" });
                     // iff fast-forward was successful, trigger return from establishSession().
                     // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
                     this.sessionSpec.sessionJoined();
