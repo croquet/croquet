@@ -111,7 +111,7 @@ const git_bumped = git_message.endsWith(pkg.version);                           
 const git_clean = !execSync("git status --porcelain -- " + deps.join(" ")).toString().trim(); // all deps are committed
 
 const public_build = !is_dev_build && !pkg.version.includes('-');
-const prerelease = (git_branch === "main" || git_branch === "dev") && git_bumped && git_clean;
+const prerelease = !is_dev_build && (git_branch === "main" || git_branch === "dev") && git_bumped && git_clean;
 const bundle_date = public_build || prerelease ? git_date : moment().toISOString(true);
 
 if (public_build && (git_branch !== "main" || !git_clean)) throw Error(`Public build ${pkg.version} but ${!git_clean ? "git is not clean" : `not on main branch)`}`);

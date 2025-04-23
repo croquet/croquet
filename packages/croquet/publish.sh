@@ -2,7 +2,7 @@
 set -e
 cd `dirname "$0"`
 
-./build.sh
+./build.sh prod
 
 HEAD=`sed '/\*\// q' pub/croquet.min.js`
 VERSION=`echo "$HEAD" | grep Version: | sed 's/.*Version: //'`
