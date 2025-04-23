@@ -6,6 +6,10 @@ These are detailed internal changes. The user-facing change log is at the end of
 
 # latest @dev
 
+...
+
+# 2025-04-23 2.0.1
+
 * 2.0.1-2 consistently use Croquet or Multisynq in log messages
 * 2.0.1-1 publish only prod builds
 * 2.0.1-0 pass all args from Model.create() to init(), catch disconnect during fast-forward, add Croquet.VERSION
