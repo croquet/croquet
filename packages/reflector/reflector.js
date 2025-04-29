@@ -392,7 +392,8 @@ async function startServerForDePIN() {
                 try {
                     connectedClient.island = null; // checked in client close handler
                     connectedClient.close();
-                    global_logger.debug({ event: "close-client-data-channel", globalClientId, reason }, `client ${globalClientId} data channel closed${reasonMsg}`);
+                    const durationMsg = connectedClient.since ? ` after ${((Date.now() - connectedClient.since) / 1000).toFixed(1)}s` : "";
+                    global_logger.debug({ event: "close-client-data-channel", globalClientId, reason }, `client ${globalClientId} data channel closed${reasonMsg}${durationMsg}`);
                 }
                 catch (e) { /* */ }
                 this.clients.delete(globalClientId);
