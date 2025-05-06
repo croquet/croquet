@@ -2,7 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.4.0"; // should match package.json
+const SYNCH_VERSION = "2.5.0"; // should match package.json
 
 const os = require('node:os');
 const fs = require('node:fs');
@@ -31,6 +31,7 @@ const ARGS = {
     SYNCNAME: "--sync-name",  // followed by a name, e.g. --sync-name abcd1234
     LAUNCHER: "--launcher",   // followed by a launch vehicle, e.g. --launcher app-1.2.1
     WALLET: "--wallet",       // followed by full wallet ID
+    KEY: "--key",             // followed by full SynqKey uuid
     ACCOUNT: "--account",     // followed by a Multisynq account ID
 };
 
@@ -38,7 +39,8 @@ const EXIT = {
     NORMAL: 0,         // a planned shutdown
     FATAL: 1,          // something unrecoverable (including syntax error in this file)
     SHOULD_RESTART: 2, // emergency shutdown; DePIN app can try to restart
-    NEEDS_UPDATE: 3,   // DePIN registry rejected our registration
+    BAD_VERSION: 3,    // DePIN registry rejected our version number
+    BAD_KEY: 4,        // DePIN registry rejected our Synq Key
 };
 
 const knownArgs = Object.values(ARGS);
@@ -47,7 +49,7 @@ for (let i = 2; i < process.argv.length; i++) {
     if (!knownArgs.includes(arg)) {
         // might be following an arg that can take a value
         const prevArg = process.argv[i - 1];
-        if (![ARGS.DEPIN, ARGS.SYNCNAME, ARGS.WALLET, ARGS.ACCOUNT, ARGS.LAUNCHER].includes(prevArg)) {
+        if (![ARGS.DEPIN, ARGS.SYNCNAME, ARGS.WALLET, ARGS.KEY, ARGS.ACCOUNT, ARGS.LAUNCHER].includes(prevArg)) {
             console.error(`Error: Unrecognized option ${arg}`);
             process.exit(EXIT.FATAL);
         }
@@ -62,7 +64,7 @@ function parseArgWithValue(argKey) {
     return null;
 }
 
-let WALLET, ACCOUNT, DEV_MODE, LAUNCHER;
+let KEY, WALLET, ACCOUNT, DEV_MODE, LAUNCHER;
 let DEPIN = process.argv.includes(ARGS.DEPIN);
 if (DEPIN) {
     // value argument is optional (defaults to prod)
@@ -70,26 +72,27 @@ if (DEPIN) {
     if (depinValue) DEPIN = depinValue;
 
     WALLET = parseArgWithValue(ARGS.WALLET);
+    KEY = parseArgWithValue(ARGS.KEY);
     ACCOUNT = parseArgWithValue(ARGS.ACCOUNT);
-    // since 2.1.0, an account ID can be supplied even with a wallet (e.g., for tracking our
-    // beta synqers).  but supplying an account ID _without_ a wallet implies developer mode,
-    // as it always has.
-    DEV_MODE = !!(ACCOUNT && !WALLET)
+    // as of 2.5.0, we no longer expect an account ID in conjunction with a wallet.
+    // supplying an account ID therefore implies developer mode.
+    DEV_MODE = !!ACCOUNT;
 
     if (!WALLET && !DEV_MODE) {
         // $$$ figure out what to do here.  for now, this will be the case for
         // all GCP-deployed synchronizers.  supply a default wallet.
         console.warn("No wallet specified for DePIN; using community default"); // no loggers yet
-        WALLET = '5B3aFyxpnGY36fBeocsLfia5vgAUrbD5pTXorCcMeV7t';
+        WALLET = '0xe021a0ac1f98cE214d1cf0821d1644a550550766'; // Monad wallet, added May 2025
     }
 
     LAUNCHER = parseArgWithValue(ARGS.LAUNCHER);
     if (!LAUNCHER) LAUNCHER = 'unknown';
 
     const walletStr = WALLET ? `wallet=${WALLET} ` : "";
+    const keyStr = KEY ? `key=${KEY} ` : "";
     const accountStr = ACCOUNT ? `account=${ACCOUNT} ` : "";
     const devModeStr = DEV_MODE ? "developer mode " : "";
-    console.log(`DePIN ${devModeStr}with ${walletStr}${accountStr}launched from ${LAUNCHER} on ${os.platform()} ${os.arch()}`);
+    console.log(`DePIN ${devModeStr}with ${keyStr}${walletStr}${accountStr}launched from ${LAUNCHER} on ${os.platform()} ${os.arch()}`);
 }
 
 function getRandomString(length) {
@@ -571,7 +574,11 @@ async function startServerForDePIN() {
         searchParams.set('processKey', NODE_PROCESS_KEY);
         searchParams.set('connectTime', proxyLatestConnectTime);
         if (registerRegion) searchParams.set('registerRegion', registerRegion);
-        if (WALLET) searchParams.set('wallet', WALLET);
+        if (KEY) searchParams.set('synqKey', KEY);
+        if (WALLET) {
+            searchParams.set('wallet', WALLET);
+            searchParams.set('walletType', 'monad');
+        }
         if (ACCOUNT) searchParams.set('account', ACCOUNT);
         proxySocket = new WebSocket(proxyUrl.toString(), {
             perMessageDeflate: false, // this was in the node-datachannel example; not sure if it's helping
@@ -606,6 +613,7 @@ async function startServerForDePIN() {
             if (thisConnectTime !== proxyLatestConnectTime) return; // this connection has been superseded
 
             try {
+                const electronMain = process.parentPort;
                 const depinMsg = JSON.parse(depinStr);
                 switch (depinMsg.what) {
                     case "REGISTERED": {
@@ -653,7 +661,6 @@ async function startServerForDePIN() {
 
                         // if there is a connected parent process (assumed to be Electron),
                         // give it some details now.
-                        const electronMain = process.parentPort;
                         electronMain?.postMessage({ what: 'syncDetails', ipHash, version: SYNCH_VERSION, region: registerRegion });
                         break;
                     }
@@ -683,13 +690,11 @@ async function startServerForDePIN() {
                         break;
                     case 'DEMO_TOKEN': {
                         const { token } = depinMsg;
-                        const electronMain = process.parentPort;
                         electronMain?.postMessage({ what: 'demoToken', token });
                         break;
                     }
                     case 'DEVELOPER_TOKEN': {
                         const { token } = depinMsg;
-                        const electronMain = process.parentPort;
                         electronMain?.postMessage({ what: 'developerToken', token });
                         break;
                     }
@@ -740,12 +745,15 @@ async function startServerForDePIN() {
                         switch (depinMsg.reason) {
                             case 'VERSION-INVALID':
                                 global_logger.warn({ event: "exit-needs-update", version: depinMsg.details.version }, `invalid synchronizer version ${depinMsg.details.version}`);
-                                process.exit(EXIT.NEEDS_UPDATE);
-                                break;
+                                process.exit(EXIT.BAD_VERSION);
                             case 'VERSION-UNSUPPORTED':
                                 global_logger.warn({ event: "exit-needs-update", version: depinMsg.details.version, expected: depinMsg.details.expected }, `unsupported synchronizer version ${depinMsg.details.version} (expected ${depinMsg.details.expected})`);
-                                process.exit(EXIT.NEEDS_UPDATE);
-                                break;
+                                process.exit(EXIT.BAD_VERSION);
+                            case 'KEY-REJECTED':
+                                const rejectionReason = depinMsg.details.reason;
+                                global_logger.warn({ event: "exit-synq-key-rejected", synqKey: depinMsg.details.synqKey, reason: rejectionReason }, `key ${depinMsg.details.synqKey} rejected: ${rejectionReason}`);
+                                electronMain?.postMessage({ what: 'synqKeyRejected', reason: rejectionReason });
+                                setTimeout(() => process.exit(EXIT.NORMAL), 500); // leave a little time for the UI to reset itself
                             default:
                                 global_logger.error({ event: "unknown-registry-error", reason: depinMsg.reason, details: depinMsg.details}, `unhandled registry error: ${depinMsg.reason}${depinMsg.details ? " " + JSON.stringify(depinMsg.details) : ''}`);
                         }
