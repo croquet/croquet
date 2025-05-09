@@ -952,7 +952,7 @@ declare module "@croquet/croquet" {
         ): Promise<CroquetSession<V>>;
     }
 
-    export var Constants: object;
+    export var Constants: Record<string, any>;
 
     export const VERSION: string;
 
