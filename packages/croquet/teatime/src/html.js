@@ -878,10 +878,14 @@ export const App = {
             url.searchParams.set(key, fragment);
         }
         // change page url if needed
-        const href = url.toString("");
-        if (window.location.href !== href) {
-            window.history.replaceState({}, "", href);
-            App.sessionURL = href;
+        App.sessionURL = url.href;
+        if (window.location.href !== url.href) {
+            try {
+                window.history.replaceState({}, "", url.href);
+            } catch (ex) {
+                App.showMessage(`Setting address bar to ${url.href}`, { only: "once" });
+                App.showMessage(`Failed to change address bar: ${ex.message}`, { level: "warning", only: "once" });
+            }
         }
         if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.autoSession: "${fragment}"`);
         // return Promise for future-proofing
@@ -935,7 +939,12 @@ export const App = {
         }
         if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.sessionUrl: ${App.sessionURL}`);
         // change url bar if needed
-        if (window.location.href !== url.href) window.history.replaceState({}, "", url.href);
+        if (window.location.href !== url.href) try {
+            window.history.replaceState({}, "", url.href);
+        } catch (ex) {
+            App.showMessage(`Setting address bar to ${url.href}`, { only: "once" });
+            App.showMessage(`Failed to change address bar: ${ex.message}`, { level: "warning", only: "once" });
+        }
         // decode % entities if possible
         if (password) try { password = decodeURIComponent(password); } catch (ex) { /* ignore */ }
         if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.autoPassword: "${password}"`);
