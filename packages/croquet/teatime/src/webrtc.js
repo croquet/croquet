@@ -153,11 +153,10 @@ export class CroquetWebRTCConnection {
                 const msgData = JSON.parse(rawMsg.data);
                 if (msgData.what === 'READY') {
                     // sent by the SessionRunner to indicate socket acceptance.
-                    // now includes the SessionRunner-assigned client id.
+                    // now includes the SessionRunner-assigned client id, and
+                    // an array of ICE servers.
                     this.clientId += `_${msgData.id}`;
-                    if (msgData.iceServers && !globalThis.iceServersP) {
-                        globalThis.iceServersP = Promise.resolve(msgData.iceServers);
-                    }
+                    this.iceServers = msgData.iceServers;
                     resolve();
                     return;
                 }
@@ -326,42 +325,7 @@ export class CroquetWebRTCConnection {
     }
 
     async createPeerConnection() {
-        if (!globalThis.iceServersP) {
-            globalThis.iceServersP = new Promise((resolve, reject) => {
-                // fetch STUN and TURN details from Open Relay (https://www.metered.ca/tools/openrelay/)
-                let tries = 3;
-                const fetchServers = () => {
-                    fetch(process.env.ICE_SERVERS_URL)
-                    .then(response => {
-                        if (response.status !== 200) throw Error(`status=${response.status}`);
-                        return response.json();
-                    }).then(serversObj => {
-                        // an opportunity to edit the supplied servers - for example, if we want to add an alternative TURN service.
-                        // [
-                        //   { urls: "stun:stun.l.google.com:19302" },
-                        //   { urls: "stun:stun.l.google.com:5349" },
-                        // ].forEach(stun => serversObj.unshift(stun));
-                        // console.log(serversObj);
-                        resolve(serversObj);
-                    }).catch(err => {
-                        console.warn("error in fetching ICE servers", err);
-                        if (--tries > 0) setTimeout(fetchServers, 250);
-                        else reject(); // caught below, throwing a 4200 (fatal) error
-                    });
-                };
-                fetchServers();
-            });
-        }
-
-        let iceServers;
-        try {
-            iceServers = await globalThis.iceServersP;
-        } catch (err) {
-            const error = new Error("failed to fetch ICE servers");
-            error.code = 4200; // do not retry
-            throw error;
-        }
-
+        const { iceServers } = this;
         const iceReportedErrors = new Set(); // do our own filtering
         const pc = this.pc = new globalThis.RTCPeerConnection({ iceServers });
         pc.onnegotiationneeded = _e => {
