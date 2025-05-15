@@ -220,9 +220,10 @@ class View {
      */
     subscribe(scope, eventSpec, callback) {
         if (typeof callback === "string") callback = this[callback];
+        if (typeof callback !== "function") throw Error(`${App.libName}: subscribe() handler is not a function`);
         const unbound = callback;
         callback = unbound.bind(this);
-        callback.unbound = unbound;
+        callback.unbound = unbound; // for unsubscribing
         const {event, handling} = eventSpec.event ? eventSpec : {event: eventSpec};
         this.realm.subscribe(event, this.id, callback, scope, handling);
     }
