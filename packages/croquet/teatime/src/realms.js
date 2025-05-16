@@ -91,15 +91,15 @@ class ViewRealm {
         this.vm.publishFromView(scope, event, data);
     }
     subscribe(event, subscriberId, callback, scope, handling="queued") {
-        if (DEBUG.subscribe) console.log(`View.subscribe("${scope}:${event}", ${subscriberId} ${callback ? callback.name || (""+callback).replace(/\([\s\S]*/, '') : ""+callback} [${handling}])`);
+        if (DEBUG.subscribe) console.log(`View[${subscriberId}].subscribe("${scope}:${event}", ${callback ? callback.name || (""+callback).replace(/\([\s\S]*/, '') : ""+callback} [${handling}])`);
         viewDomain.addSubscription(scope, event, subscriberId, callback, handling);
     }
     unsubscribe(event, subscriberId, callback=null, scope) {
-        if (DEBUG.subscribe) console.log(`View.unsubscribe("${scope}:${event}", ${subscriberId} ${callback ? callback.name || (""+callback).replace(/\([\s\S]*/, '') : "*"})`);
+        if (DEBUG.subscribe) console.log(`View[${subscriberId}].unsubscribe("${scope}:${event}", ${callback ? callback.name || (""+callback).replace(/\([\s\S]*/, '') : "*"})`);
         viewDomain.removeSubscription(scope, event, subscriberId, callback);
     }
     unsubscribeAll(subscriberId) {
-        if (DEBUG.subscribe) console.log(`View.unsubscribeAll(${subscriberId})`);
+        if (DEBUG.subscribe) console.log(`View[${subscriberId}].unsubscribeAll()`);
         viewDomain.removeAllSubscriptionsFor(subscriberId);
     }
 
