@@ -88,8 +88,10 @@ export class Domain {
             if (remaining === "none") delete this.subscriptions[topic];
             if (remaining !== "subscriber") {
                 const topics = this.subscribers.get(subscriberId);
-                topics.delete(topic);
-                if (topics.size === 0) this.subscribers.delete(subscriberId);
+                if (topics) {
+                    topics.delete(topic);
+                    if (topics.size === 0) this.subscribers.delete(subscriberId);
+                }
             }
         }
         if (!event.endsWith(VOTE_SUFFIX)) this.removeSubscription(scope, event + VOTE_SUFFIX, subscriberId);
