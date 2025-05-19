@@ -1,6 +1,6 @@
 {
   "name": "@croquet/croquet",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Multiuser for Static Web Apps by Running Server Code in Synced Client VMs",
   "keywords": [
     "croquet",
@@ -60,7 +60,9 @@
   },
   "watch": {
     "build-dev": {
-      "patterns": [ "." ],
+      "patterns": [
+        "."
+      ],
       "ignore": [
         "./cjs",
         "./pub"
@@ -69,7 +71,9 @@
       "quiet": false
     },
     "build-dev-pub": {
-      "patterns": [ "." ],
+      "patterns": [
+        "."
+      ],
       "ignore": [
         "./cjs",
         "./pub"
@@ -78,7 +82,9 @@
       "quiet": false
     },
     "build-dev-cjs": {
-      "patterns": [ "." ],
+      "patterns": [
+        "."
+      ],
       "ignore": [
         "./cjs",
         "./pub"
