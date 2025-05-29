@@ -79,7 +79,7 @@ function initOptions() {
         pong: urlOptions.has("debug", "pong", false),                       // received PONGs
         snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
         session: urlOptions.has("debug", "session", false),                 // session logging
-        initsnapshot: urlOptions.has("debug", "initsnapshot", devOrLocal),  // check snapshotting after initFn
+        initsnapshot: urlOptions.has("debug", "initsnapshot", true),        // check snapshotting after initFn
         reflector: urlOptions.has("debug", "reflector", devOrCroquetIoDev), // use dev reflector
         offline: urlOptions.has("debug", "offline", false),                 // short-circuit all requests
     };
