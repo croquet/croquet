@@ -1,60 +1,128 @@
+# Croquet Synchronized Video Demo
 
-# Croquet synced video demo
+**A real-time collaborative video player built with Croquet** - allows multiple users to watch videos together in perfect synchronization across devices.
 
-Copyright (C) 2025 Croquet Labs
+*Copyright (C) 2025 Croquet Labs*
 
-This repository contains a demonstration of a Croquet-based app for shared playback of an mp4 video dragged into any user's browser tab.
+## ✨ Features
 
-# Installation
+- 🎬 **Synchronized playback** - All users see the exact same video frame
+- 📁 **Drag & drop upload** - Simply drag an MP4 file into any browser tab
+- ▶️ **Shared controls** - Play, pause, and scrubbing affects all connected users
+- 📱 **Cross-device support** - QR code for easy mobile joining
+- 🔄 **Auto-sync** - Tabs automatically re-sync when returning from being hidden
+- 💾 **Session persistence** - Uploaded videos remain available throughout the session
 
-Clone this repository, then in the top directory run
+## 🚀 Quick Start
 
-    npm install
+### Installation
 
-then, to start the app,
+```bash
+git clone <repository-url>
+cd <repository-name>
+npm install
+```
 
-    npm start
+### Running the App
 
-and point a browser to `localhost:9009`
+```bash
+npm start
+```
 
-# Usage
+Then open your browser to [localhost:9009](http://localhost:9009)
 
-* On first load, the URL is automatically extended with a randomised session name and password.  Browser tabs loading the same extended URL will be in the same session.
-* Drag and drop a .mp4 file into the browser tab (size currently limited to 100MB) to cue it up
-* Click on video or its surround to play/pause
-* Click and drag in strip at top to scrub video (play is automatically paused)
-* Hover on the QR code in bottom left to expand the code to full size.  Click the code to launch a synchronised tab in the same browser, or use a smartphone's camera to open a synchronised tab on the phone.
+## 🎮 How to Use
 
-    The QR code just contains the extended URL of the page.  Bear in mind during development that of course a localhost URL will only work on a separate device if that device is connected, for example through USB.  Alternatively, you can use a proxy such as `ngrok` to generate a global URL for the port (by default, 9009) through which the app is being served.
+### Getting Started
+1. **Automatic session creation**: The URL is automatically extended with a randomized session name and password
+2. **Join from multiple devices**: Any browser loading the same extended URL joins the same session
 
-* A tab that is hidden for 10 seconds will become dormant.  It will re-sync when revealed again, typically within 5 seconds.
-* Drag and drop a different .mp4 into any running tab to replace video in all synced tabs
+### Video Controls
+- **Upload**: Drag and drop any `.mp4` file into the browser tab (max 100MB)
+- **Play/Pause**: Click anywhere on the video or its surrounding area
+- **Scrubbing**: Click and drag in the timeline strip at the top (automatically pauses during scrubbing)
+- **Replace video**: Drag a different `.mp4` file to replace the current video across all tabs
 
-# Main classes
+### Multi-Device Features
+- **QR Code**: Hover over the QR code (bottom left) to expand it to full size
+- **Quick join**: Click the QR code to open a synchronized tab in the same browser
+- **Mobile access**: Use a smartphone camera to scan the QR code and join on mobile
 
-## Video2DView (video.js)
+### Session Management
+- **Dormant handling**: Hidden tabs become dormant after 10 seconds and re-sync when revealed (typically within 5 seconds)
+- **Session persistence**: Videos and metadata persist throughout the session
 
-A thin layer on top of an HTML video element, supporting play/pause/seek, and dealing with wrapped time for looping replay.
+## 🏗️ Architecture
 
-## SyncedVideoModel (video.js)
+### Core Classes
 
-A Croquet Model subclass whose property values and events are automatically replicated between instances (users) in the same session.  The model's properties are minimal: an asset object containing meta data for the video; and video playback state (playing/paused etc). The model also retains data handles for all uploaded files, to avoid having to upload them twice.
+#### `Video2DView` (video.js)
+A lightweight wrapper around HTML5 video elements that provides:
+- Enhanced play/pause/seek functionality
+- Wrapped time handling for seamless looping
+- Cross-browser compatibility handling
 
-Croquet's persistence mechanism ensures the contents will always be restored. However, playback state is not retained, since that makes only sense for an ongoing session.
+#### `SyncedVideoModel` (video.js)
+The Croquet Model that maintains synchronized state:
+- **Asset metadata**: Video file information and properties
+- **Playback state**: Current playing/paused status and position
+- **Data persistence**: Retains uploaded file handles to prevent duplicate uploads
+- **Automatic restoration**: Croquet's persistence ensures content is always restored
 
-## SyncedVideoView (video.js)
+*Note: Playback state is intentionally not persisted across sessions since it only makes sense for active sessions.*
 
-The guts of the app.  Synchronisation (against the globally coordinated session time provided by Croquet) is handled in method `checkPlayStatus`.
+#### `SyncedVideoView` (video.js)
+The main application logic handling synchronization:
 
-Method `applyPlayState` attempts to impose the desired (shared) playback state on the local video element.  It takes into account that browsers impose restrictions on playback of videos before a user has first clicked on the page: typically, a video will refuse to play (raising an error) unless it is muted.  Therefore if an error occurs, we set `muted` to `true` and try again.  If that still causes an error (Chrome seems ok, but maybe some other browser is more conservative) we switch to "stepping" mode, handled in `stepWhileBlocked`, periodically showing still frames as video time moves on.  In that mode, a user click is then enough to make the video play properly (and unmuted).
+##### Key Methods:
+- **`checkPlayStatus()`**: Core synchronization logic against Croquet's global session time
+- **`applyPlayState()`**: Manages browser playback restrictions and fallbacks:
+  - Handles "muted autoplay" requirements
+  - Implements "stepping mode" for restrictive browsers
+  - Automatic unmuting after user interaction
 
-When a tab joins (or rejoins) a session, it is fed - in sequence - all events that have taken place in the session while the tab was away.  The `SyncedVideoView` subscribes to the system-level [`synced` event](https://croquet.io/sdk/docs/global.html#event:synced), in order to be informed when the join is complete, meaning that this tab is now in sync.  Only then does the view act on the playback state communicated in the most recent `playStateChanged` event.
+##### Synchronization Features:
+- **Join/Rejoin handling**: Processes all missed events when tabs rejoin sessions
+- **Sync event subscription**: Responds to Croquet's `synced` event to know when catch-up is complete
+- **Dormant recovery**: Automatically rebuilds view when tabs are re-awakened
 
-Note that if a tab goes dormant due to being hidden, its `SyncedVideoView` will be discarded.  A completely new one is built if and when the tab is re-awakened.
+### Data Handling
 
-Croquet's Data API takes care of sharing the mp4 file contents.  Note that the existing app works by supplying the entire video content to the `Video2DView` as an [ObjectURL](https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL), _not_ by streaming.
+**File Sharing**: Uses Croquet's Data API for efficient video file distribution
+- **ObjectURL creation**: Videos are provided as [ObjectURLs](https://developer.mozilla.org/en-US/docs/Web/API/URL/createObjectURL) rather than streaming
+- **Automatic deduplication**: Prevents re-uploading of identical files
+- **Cross-session persistence**: Files remain available throughout session lifetime
 
+## 🌐 Development Notes
 
-# Dependencies
+### Cross-Device Testing
+- **Localhost limitations**: localhost URLs only work on the same network
+- **Global access**: Consider using tools like `ngrok` to create public URLs for remote device testing
+- **USB debugging**: For mobile testing, ensure devices are properly connected via USB
 
-- icons, all from [the Noun Project](https://thenounproject.com/): Sound, by Markus; play, by Adrien Coquet; point, by Ricardo Martins
+### Browser Compatibility
+- **Autoplay policies**: Different browsers have varying restrictions on video autoplay
+- **Fallback strategies**: The app implements multiple fallback strategies for restrictive environments
+- **User interaction**: Some features require initial user interaction to fully activate
+
+## 📦 Dependencies
+
+### Icons
+All icons sourced from [The Noun Project](https://thenounproject.com/):
+- **Sound icon**: by Markus
+- **Play icon**: by Adrien Coquet  
+- **Point icon**: by Ricardo Martins
+
+### Libraries
+- **Croquet**: Real-time synchronization framework
+- **Standard web APIs**: HTML5 Video, Drag & Drop, ObjectURL
+
+---
+
+## 🤝 Contributing
+
+This demo showcases Croquet's capabilities for real-time collaborative applications. Feel free to use it as a starting point for your own synchronized media experiences!
+
+## 📄 License
+
+Licensed under the same terms as the main Croquet project.

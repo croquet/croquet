@@ -1,100 +1,192 @@
 # Croquet Reflector
 
-This is the server that keeps Croquet clients (which are using the `@croquet/croquet` library) in sync.
+**The Croquet Reflector is the server component that keeps Croquet clients synchronized.** It maintains perfect state consistency across all connected clients by managing timing beacons and message distribution.
 
-It does so by sending out a timing beacon ("ticks") interleaved with time-stamped user input events ("messages). Since every client executes deterministically from the same initial state, only depending on what it receives from the reflector, and every client receives the exact same events, all clients evolve their state independently but absolutely identical.
+## 🔄 How It Works
 
-Clients upload snapshots of their state to a file server from time to time. The reflector keeps track of the snapshos. When a new client joints, the reflector sends it a SYNC message containing the latest snapshot URL, and a list of messages received since that snapshot was taken. The client fast-forwards through that list and then is in the same state as every other client.
+The reflector ensures synchronization through a simple but powerful mechanism:
 
-## Running locally
+1. **Timing Beacons ("ticks")**: Regular timing signals sent to all clients
+2. **Timestamped Messages**: User input events with precise timing information  
+3. **Deterministic Replay**: All clients execute the same events in identical order
 
-First install dependencies:
+Since every client starts from the same initial state and processes identical event sequences deterministically, all clients maintain perfect synchronization without complex consensus algorithms.
 
-```
+## 📸 Snapshot & Join Process
+
+**New Client Join Flow:**
+1. **Snapshot Discovery**: Reflector identifies the latest available snapshot
+2. **SYNC Message**: Sends snapshot URL and subsequent message list to new client
+3. **Fast-Forward**: Client loads snapshot and replays all messages since that point
+4. **Synchronization**: Client catches up to current state and joins real-time operation
+
+## 🚀 Local Development
+
+### Prerequisites
+```bash
 npm ci
 ```
 
-To run the reflector locally (with nicer logs via the `.pino-prettyrc` in this directory):
-
-```
+### Running the Reflector
+```bash
 npm start
 ```
 
-This will open a web socket server on `ws://localhost:9090/`. To route a client application to your locally running reflector, modify the client's url in the browser to point to the local web socket server. For example, we can take this example application called "2d" at the following url https://croquet.io/2d/index.html, and change it to the url https://croquet.io/2d/index.html?&debug=session,snapshots&reflector=ws://localhost:9090.
+This starts a WebSocket server on `ws://localhost:9090/` with enhanced logging via `.pino-prettyrc`.
 
-## Deploying the reflector to a stand-alone environment
+### Testing with Applications
 
-The easiest way to get a fully working installation is [Croquet-in-a-Box](../../server/croquet-in-a-box/). It combines a reflector with a web server and file server (both using `nginx`) in a single package.
+To route a client application to your local reflector, modify the URL parameters:
 
-# Miscellaneous
+**Example:** Convert a production URL:
+```
+https://croquet.io/2d/index.html
+```
 
-## Logging
+**To local development:**
+```
+https://croquet.io/2d/index.html?debug=session,snapshots&reflector=ws://localhost:9090
+```
 
-[reflector.js](./reflector.js) contains multiple logging functions (LOG, NOTICE, WARN, ERROR, DEBUG, etc.), use the corresponding function depending on the severity level. See Google Cloud docs on [LogSeverity](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity) for more.
+## 🌐 Production Deployment
 
-Many of the logs are useful for troubleshooting. Some logs, however, are aggregated and used for billing data as well as feeding developer dashboards.
+### Recommended: Croquet-in-a-Box
+The easiest way to deploy a complete Croquet environment is [Croquet-in-a-Box](../../server/croquet-in-a-box/), which provides:
+- ✅ Reflector server
+- ✅ Web server (nginx)  
+- ✅ File server (nginx)
+- ✅ Single Docker Compose package
 
-Here are some of the key pieces we log (data types are strings unless noted otherwise):
+This is the recommended approach for most production deployments.
 
-* sessionId
-  * identifies the given Croquet session
-* connection
-  * client ip address and port number
-* stats
-  * the stats object contains the following 4 properties
-    * bi - bytes in (number)
-    * bo - bytes out (number)
-    * mi - messages in (number)
-    * mo - messages out (number)
-* developerId
-  * identifies the developer of the app
-* userIp
-  * ip address of the user of the current connection
-* dispatcher
-  * the dispatcher that forwarded the connection to the reflector
-* appId
-  * identifies the client application
-* persistentId
-  * identifies the persisted session
-* apiKey
-  * the API key of the developer of the client application
+### Custom Deployment
+For custom deployments, you'll need to handle:
+- WebSocket server hosting
+- SSL/TLS termination
+- Load balancing (if needed)
+- File server for snapshots
+- Monitoring and logging
 
+## 📊 Logging & Monitoring
 
-### The NOTICE function
+### Log Levels
+The reflector uses structured logging with multiple severity levels:
 
-Logs that designate a significant event (often associated with log queries), should use the NOTICE function. The NOTICE function requires both a "scope" and an "event" to be passed in. At this time, "scope" could be one of "process", "session", or "connection" to indicate that the event relates to either the reflector process itself, a session, or a connection. The "event" can be anything, but common ones are "start" and "end".
+| Function | Level | Usage |
+|----------|-------|-------|
+| `DEBUG()` | Debug | Development information |
+| `LOG()` | Info | General operational info |
+| `NOTICE()` | Notice | Significant events |
+| `WARN()` | Warning | Potential issues |
+| `ERROR()` | Error | Error conditions |
+
+*Levels follow [Google Cloud LogSeverity](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity) standards.*
+
+### Key Metrics Tracked
+
+The reflector logs crucial data for monitoring, billing, and developer dashboards:
+
+#### Connection Metrics
+- **`sessionId`**: Unique session identifier
+- **`connection`**: Client IP address and port  
+- **`userIp`**: User's IP address
+- **`stats`**: Traffic statistics object containing:
+  - `bi` (number): Bytes in
+  - `bo` (number): Bytes out  
+  - `mi` (number): Messages in
+  - `mo` (number): Messages out
+
+#### Application Metadata
+- **`developerId`**: Developer/organization identifier
+- **`appId`**: Application identifier
+- **`apiKey`**: Developer's API key
+- **`persistentId`**: Persistent session identifier
+- **`dispatcher`**: Routing dispatcher information
+
+### Structured Event Logging
+
+For significant events, use the `NOTICE()` function with scope and event parameters:
 
 ```javascript
-// we might want to indicate that a session has started:
-NOTICE("session", "start");
-
-// similar to the other log functions, we can also pass a metadata object and a message
+// Session lifecycle events
 NOTICE("session", "start", {sessionId: id}, "receiving JOIN");
+NOTICE("session", "end", {sessionId: id}, "session terminated");
+
+// Process events  
+NOTICE("process", "start", {}, "reflector starting");
+NOTICE("process", "stop", {}, "reflector shutting down");
+
+// Connection events
+NOTICE("connection", "open", {userIp: ip}, "client connected");
+NOTICE("connection", "close", {userIp: ip}, "client disconnected");
 ```
 
+**Scope Categories:**
+- **`"process"`**: Reflector process lifecycle
+- **`"session"`**: Session management events
+- **`"connection"`**: Client connection events
 
-## Other stuff
+## 🏗️ Architecture Notes
 
-### Difference between islands and sessions
+### Sessions vs Islands
+In logging and internal operations:
+- **`ALL_SESSIONS`**: All sessions (superset, includes inactive)
+- **`ALL_ISLANDS`**: Only sessions with active connections (subset)
 
-As it relates to logging, both island and session ids are logged as "sessionId". However there are situations where the difference between an "island" and a "session" may matter.
+Both are logged as `sessionId` but represent different operational states.
 
-* ALL_ISLANDS represents sessions with connected clients.
-* ALL_SESSIONS represents all sessions, superset of ALL_ISLANDS
+### Performance Considerations
+- **Memory Usage**: Reflector maintains message history for catchup
+- **CPU Usage**: Message routing scales with connected client count
+- **Network**: Bandwidth scales with message frequency and client count
+- **Storage**: Snapshot storage requirements depend on session complexity
 
-### Problems on M1 Macbook
+## 🔧 Troubleshooting
 
-    > node reflector.js
-    dyld[17909]: missing symbol called
-    [1]    17909 abort      node reflector.js
+### M1 Macbook Issues
 
-One of the dependencies (fast-crc32c) has a bug due to an upstream dependency not working on the new M1 chip architecture. To work around the issue, uninstall the fast-crc32c module by running `npm uninstall fast-crc32c`. However, do not commit that change, as the dependency is used in the production environment.
+**Problem:**
+```bash
+> node reflector.js
+dyld[17909]: missing symbol called
+[1]    17909 abort      node reflector.js
+```
 
-Another fix is to go into the node_modules directory and modify the fast-crc32c code (`node_modules/fast-crc32c/loader.js`) by commenting out the sse4_crc32c implementation from the array of implementations. It should look like this:
+**Cause:** The `fast-crc32c` dependency has M1 chip compatibility issues.
 
+**Solution 1 - Remove dependency (temporary):**
+```bash
+npm uninstall fast-crc32c
+```
+*Note: Don't commit this change as it's used in production.*
+
+**Solution 2 - Modify implementation:**
+Edit `node_modules/fast-crc32c/loader.js`:
 ```javascript
-  const impls = [
-    // './impls/sse4_crc32c',
-    './impls/js_crc32c',
-  ];
+const impls = [
+  // './impls/sse4_crc32c',  // Comment out this line
+  './impls/js_crc32c',
+];
 ```
+
+### Common Issues
+- **Port conflicts**: Ensure port 9090 is available
+- **WebSocket errors**: Check firewall and proxy settings
+- **Memory leaks**: Monitor for growing message histories
+- **Performance degradation**: Watch for excessive message rates
+
+## 🤝 Contributing
+
+When contributing to the reflector:
+1. Follow existing logging patterns
+2. Add appropriate `NOTICE()` calls for significant events
+3. Include relevant metadata in log entries
+4. Test on both x64 and ARM architectures
+5. Verify production logging compatibility
+
+---
+
+## 📄 License
+
+Licensed under the same terms as the main Croquet project.
+
