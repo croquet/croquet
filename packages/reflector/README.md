@@ -59,14 +59,6 @@ The easiest way to deploy a complete Croquet environment is [Croquet-in-a-Box](.
 
 This is the recommended approach for most production deployments.
 
-### Custom Deployment
-For custom deployments, you'll need to handle:
-- WebSocket server hosting
-- SSL/TLS termination
-- Load balancing (if needed)
-- File server for snapshots
-- Monitoring and logging
-
 ## 📊 Logging & Monitoring
 
 ### Log Levels
@@ -174,19 +166,3 @@ const impls = [
 - **WebSocket errors**: Check firewall and proxy settings
 - **Memory leaks**: Monitor for growing message histories
 - **Performance degradation**: Watch for excessive message rates
-
-## 🤝 Contributing
-
-When contributing to the reflector:
-1. Follow existing logging patterns
-2. Add appropriate `NOTICE()` calls for significant events
-3. Include relevant metadata in log entries
-4. Test on both x64 and ARM architectures
-5. Verify production logging compatibility
-
----
-
-## 📄 License
-
-Licensed under the same terms as the main Croquet project.
-

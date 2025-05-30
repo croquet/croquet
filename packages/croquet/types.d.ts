@@ -2,20 +2,20 @@ declare module "@croquet/croquet" {
 
     export type ClassId = string;
 
-    export interface Class<T> {
-        new (...args: never[]): T;
+    export interface Class<T> extends Function {
+        new (...args: any[]): T;
     }
 
     export type InstanceSerializer<T, IS> = {
         cls: Class<T>;
         write: (value: T) => IS;
         read: (state: IS) => T;
-    };
+    }
 
     export type StaticSerializer<S> = {
         writeStatic: () => S;
         readStatic: (state: S) => void;
-    };
+    }
 
     export type InstAndStaticSerializer<T, IS, S> = {
         cls: Class<T>;
@@ -23,12 +23,9 @@ declare module "@croquet/croquet" {
         read: (state: IS) => T;
         writeStatic: () => S;
         readStatic: (state: S) => void;
-    };
+    }
 
-    export type Serializer =
-        | InstanceSerializer<object, object>
-        | StaticSerializer<object>
-        | InstAndStaticSerializer<object, object, object>;
+    export type Serializer = InstanceSerializer<any, any> | StaticSerializer<any> | InstAndStaticSerializer<any, any, any>;
 
     export type SubscriptionHandler<T> = ((e: T) => void) | string;
 
@@ -47,17 +44,15 @@ declare module "@croquet/croquet" {
         unsubscribeAll(): void;
     }
 
-    export type FutureHandler<T extends readonly unknown[]> =
-        | ((...args: T) => void)
-        | string;
+    export type FutureHandler<T extends any[]> = ((...args: T) => void) | string;
 
-    export type QFuncEnv = Record<string, object>;
+    export type QFuncEnv = Record<string, any>;
 
     export type EventType = {
         scope: string;
         event: string;
         source: "model" | "view";
-    };
+    }
 
     /**
      * Models are synchronized objects in Croquet.
@@ -92,7 +87,7 @@ declare module "@croquet/croquet" {
      * @hideconstructor
      * @public
      */
-    export class Model extends PubSubParticipant<Record<string, never>> {
+    export class Model extends PubSubParticipant<{}> {
         id: string;
 
         /**
@@ -117,10 +112,7 @@ declare module "@croquet/croquet" {
          * @param options - option object to be passed to [init()]{@link Model#init}.
          *     There are no system-defined options as of now, you're free to define your own.
          */
-        static create<T extends typeof Model>(
-            this: T,
-            options?: Record<string, unknown>,
-        ): InstanceType<T>;
+        static create<T extends typeof Model>(this: T, options?: any): InstanceType<T>;
 
         /**
          * __Registers this model subclass with Croquet__
@@ -141,7 +133,7 @@ declare module "@croquet/croquet" {
          * @param classId Id for this model class. Must be unique. If you use the same class name in two files, use e.g. `"file1/MyModel"` and `"file2/MyModel"`.
          * @public
          */
-        static register(classId: ClassId): void;
+        static register(classId:ClassId): void;
 
         /** Static version of [wellKnownModel()]{@link Model#wellKnownModel} for currently executing model.
          *
@@ -221,7 +213,8 @@ declare module "@croquet/croquet" {
          * ```
          * @public
          */
-        static types(): Record<ClassId, Class<object> | Serializer>;
+        static types(): Record<ClassId, Class<any> | Serializer>;
+
 
         /** Find classes inside an external library
          *
@@ -247,10 +240,7 @@ declare module "@croquet/croquet" {
          * @param {String} prefix - a prefix to add to the class names
          * @since 2.0
          */
-        static gatherClassTypes<T extends Record<string, unknown>>(
-            dummyObject: T,
-            prefix: string,
-        ): Record<ClassId, Class<object>>;
+        static gatherClassTypes<T extends Object>(dummyObject: T, prefix: string): Record<ClassId, Class<any>>;
 
         /**
          * This is called by [create()]{@link Model.create} to initialize a model instance.
@@ -263,10 +253,7 @@ declare module "@croquet/croquet" {
          * @param options - there are no system-defined options, you're free to define your own
          * @public
          */
-        init(
-            _options: Record<string, unknown>,
-            persistentData?: Record<string, unknown>,
-        ): void;
+        init(_options: any, persistentData?: any): void;
 
         /**
          * Unsubscribes all [subscriptions]{@link Model#subscribe} this model has,
@@ -460,11 +447,7 @@ declare module "@croquet/croquet" {
          * @returns {this}
          * @public
          */
-        future<T extends unknown[]>(
-            tOffset?: number,
-            method?: FutureHandler<T>,
-            ...args: T
-        ): this;
+        future<T extends any[]>(tOffset?:number, method?: FutureHandler<T>, ...args: T): this;
 
         /**
          * **Cancel a previously scheduled future message**
@@ -483,8 +466,8 @@ declare module "@croquet/croquet" {
          * @returns {Boolean} true if the message was found and canceled, false otherwise
          * @since 1.1.0-16
          * @public
-         */
-        cancelFuture<T extends unknown[]>(method: FutureHandler<T>): boolean;
+        */
+        cancelFuture<T extends any[]>(method: FutureHandler<T>): boolean;
 
         /** **Generate a synchronized pseudo-random number**
          *
@@ -494,7 +477,7 @@ declare module "@croquet/croquet" {
          *
          * Since the model computation is synchronized for every user on their device, the sequence of random numbers
          * generated must also be exactly the same for everyone. This method provides access to such a random number generator.
-         */
+        */
         random(): number;
 
         /** **The model's current time**
@@ -538,6 +521,7 @@ declare module "@croquet/croquet" {
          * ```
          */
         wellKnownModel<M extends Model>(name: string): Model | undefined;
+
 
         /** Look up a model in the current session given its `id`.
          *
@@ -599,15 +583,10 @@ declare module "@croquet/croquet" {
          * @public
          * @since 2.0
          */
-        createQFunc<T extends (...args: readonly unknown[]) => unknown>(
-            env: QFuncEnv,
-            func: T | string,
-        ): T;
-        createQFunc<T extends (...args: readonly unknown[]) => unknown>(
-            func: T | string,
-        ): T;
+        createQFunc<T extends Function>(env: QFuncEnv, func: T|string): T;
+        createQFunc<T extends Function>(func: T|string): T;
 
-        persistSession(func: () => object): void;
+        persistSession(func: () => any): void;
 
         /** **Identifies the shared session of all users**
          *
@@ -651,8 +630,8 @@ declare module "@croquet/croquet" {
             name: string;
             lat: number;
             lng: number;
-        };
-    };
+        }
+    }
 
     /** payload of view-join and view-exit if viewData was passed in Session.join */
     export type ViewInfo<T> = {
@@ -795,7 +774,7 @@ declare module "@croquet/croquet" {
             eventSpec:
                 | string
                 | { event: string; handling: "queued" | "oncePerFrame" | "immediate" },
-            callback: (e: unknown) => void,
+            callback: (e: any) => void,
         ): void;
 
         /**
@@ -867,7 +846,7 @@ declare module "@croquet/croquet" {
          * The unit is milliseconds (1/1000 second) but the value can be fractional, it is a floating-point value.
          *
          * Returns: the model's time in milliseconds since the first user created the session.
-         */
+        */
         now(): number;
 
         /** **The latest timestamp received from reflector**
@@ -885,7 +864,7 @@ declare module "@croquet/croquet" {
          * ```
          * const backlog = this.externalNow() - this.now();
          * ```
-         */
+        */
         externalNow(): number;
 
         /**
@@ -910,7 +889,7 @@ declare module "@croquet/croquet" {
          * you will have to call those methods from the root view's `update()`.
          *
          * The time received is related to the local real-world time. If you need to access the model's time, use [this.now()]{@link View#now}.
-         */
+        */
         update(time: number): void;
 
         /** Access a model that was registered previously using beWellKnownAs().
@@ -930,10 +909,11 @@ declare module "@croquet/croquet" {
          * Note: The view instance may be taken down and reconstructed during the lifetime of a session. the `view` property of the session may differ from `this`, when you store the view instance in our data structure outside of Croquet and access it sometime later.
          * @public
          */
+
         get session(): CroquetSession<View>;
 
         /** make module exports accessible via any subclass */
-        static Croquet: typeof import("@croquet/croquet");
+        static Croquet: Croquet;
     }
 
     export type CroquetSession<V extends View> = {
@@ -970,7 +950,7 @@ declare module "@croquet/croquet" {
         | "write"
         | "offline";
 
-    type ClassOf<M> = new (...args: readonly unknown[]) => M;
+    type ClassOf<M> = new (...args: any[]) => M;
 
     export type CroquetSessionParameters<M extends Model, V extends View, T> = {
         apiKey?: string;
@@ -1000,7 +980,7 @@ declare module "@croquet/croquet" {
         ): Promise<CroquetSession<V>>;
     }
 
-    export const Constants: Record<string, unknown>;
+    export var Constants: Record<string, any>;
 
     export const VERSION: string;
 
@@ -1062,7 +1042,14 @@ declare module "@croquet/croquet" {
         randomPassword: (len?: number) => string;
     }
 
-    export const App: IApp;
+    /**
+     * The App API is under construction.
+     *
+     * @public
+     */
+
+    export var App:IApp;
+
 
     interface DataHandle {
         store(
@@ -1074,7 +1061,14 @@ declare module "@croquet/croquet" {
         hash(data: unknown, output?: string): string;
     }
 
-    export const Data: DataHandle;
+    /**
+     * The Data API is under construction.
+     *
+     * @public
+     */
+
+    export var Data: DataHandle;
+
 
     type Croquet = {
         Model: typeof Model;
