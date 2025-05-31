@@ -7,7 +7,7 @@ import { makeStats } from "./stats";
 
 
 const TOUCH = 'ontouchstart' in document.documentElement;
-const IFRAMED = window.parent !== window;
+const IFRAMED = window && window.parent !== window;
 const BAR_PROPORTION = 18; // height of dock, in % of content size
 const BUTTON_RIGHT = 2; // %
 const BUTTON_WIDTH = TOUCH ? 20 : 12; // %

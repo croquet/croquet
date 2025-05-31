@@ -45,9 +45,6 @@ const NODE = croquet_build_process.env.CROQUET_PLATFORM === "node";
 // ...unless overridden by a "backend" url option
 // ...unless overridden by a "reflector=<url|region>" url option, which sets the specified url or region
 
-const appOnCroquetIo = !NODE && !!window.location.hostname.match(/^(.*\.)?croquet\.io$/i);
-const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith("/dev/");
-
 const CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/";
 const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
 
@@ -68,6 +65,8 @@ function initOptions() {
     // call we simply redo this every time establishSession() is called
     // TODO: turn this into a reasonable API
     // enable some opts by default via dev flag or being on localhost-equivalent
+    const appOnCroquetIo = !NODE && window.location.hostname.match(/^(.*\.)?croquet\.io$/i);
+    const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith("/dev/");
     const devOrLocal = urlOptions.dev || (urlOptions.dev !== false && "localhost");
     const devOrCroquetIoDev = urlOptions.dev || (urlOptions.dev !== false && appOnCroquetIoDev);
     DEBUG = {
