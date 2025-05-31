@@ -31,8 +31,16 @@ declare module "@croquet/croquet" {
 
     export abstract class PubSubParticipant<SubOptions> {
         publish<T>(scope: string, event: string, data?: T): void;
-        subscribe<T>(scope: string, event: string | {event: string} | {event: string} & SubOptions, handler: SubscriptionHandler<T>): void;
-        unsubscribe<T>(scope: string, event: string, handler?: SubscriptionHandler<T>): void;
+        subscribe<T>(
+            scope: string,
+            event: string | { event: string } | ({ event: string } & SubOptions),
+            handler: SubscriptionHandler<T>,
+        ): void;
+        unsubscribe<T>(
+            scope: string,
+            event: string,
+            handler?: SubscriptionHandler<T>,
+        ): void;
         unsubscribeAll(): void;
     }
 
@@ -355,7 +363,11 @@ declare module "@croquet/croquet" {
          * @return {this}
          * @public
          */
-        subscribe<T>(scope: string, event: string, handler: SubscriptionHandler<T>): void;
+        subscribe<T>(
+            scope: string,
+            event: string,
+            handler: SubscriptionHandler<T>,
+        ): void;
 
         /**
          * Unsubscribes this model's handler for the given event in the given scope.
@@ -364,7 +376,11 @@ declare module "@croquet/croquet" {
          * @param {Function=} handler - the event handler (if not given, all handlers for the event are removed)
          * @public
          */
-        unsubscribe<T>(scope: string, event: string, handler?: SubscriptionHandler<T>): void;
+        unsubscribe<T>(
+            scope: string,
+            event: string,
+            handler?: SubscriptionHandler<T>,
+        ): void;
 
         /**
          * Unsubscribes all of this model's handlers for any event in any scope.
@@ -619,14 +635,14 @@ declare module "@croquet/croquet" {
 
     /** payload of view-join and view-exit if viewData was passed in Session.join */
     export type ViewInfo<T> = {
-        viewId: string              // set by reflector
-        viewData: T                 // passed in Session.join
-        location?: ViewLocation     // set by reflector if enabled in Session.join
-    }
+        viewId: string; // set by reflector
+        viewData: T; // passed in Session.join
+        location?: ViewLocation; // set by reflector if enabled in Session.join
+    };
 
     export type ViewSubOptions = {
-        handling?: "queued" | "oncePerFrame" | "immediate"
-    }
+        handling?: "queued" | "oncePerFrame" | "immediate";
+    };
 
     export class View extends PubSubParticipant<ViewSubOptions> {
         /**
@@ -753,7 +769,13 @@ declare module "@croquet/croquet" {
          * @return {this}
          * @public
          */
-        subscribe(scope: string, eventSpec: string | {event: string, handling: "queued" | "oncePerFrame" | "immediate"}, callback: (e: any) => void): void;
+        subscribe(
+            scope: string,
+            eventSpec:
+                | string
+                | { event: string; handling: "queued" | "oncePerFrame" | "immediate" },
+            callback: (e: any) => void,
+        ): void;
 
         /**
          * Unsubscribes this view's handler for the given event in the given scope.
@@ -762,7 +784,11 @@ declare module "@croquet/croquet" {
          * @param {Function=} handler - the event handler (if not given, all handlers for the event are removed)
          * @public
          */
-        unsubscribe<T>(scope: string, event: string, handler?: SubscriptionHandler<T>): void;
+        unsubscribe<T>(
+            scope: string,
+            event: string,
+            handler?: SubscriptionHandler<T>,
+        ): void;
 
         /**
          * Unsubscribes all of this views's handlers for any event in any scope.
@@ -891,64 +917,66 @@ declare module "@croquet/croquet" {
     }
 
     export type CroquetSession<V extends View> = {
-        id: string,
-        view: V,
-        step: (time: number) => void,
-        leave: () => Promise<void>,
+        id: string;
+        view: V;
+        step: (time: number) => void;
+        leave: () => Promise<void>;
         data: {
-            fetch: (handle: DataHandle) => Promise<ArrayBuffer>,
-            store: (data: ArrayBuffer, options?: { shareable?: boolean, keep?: boolean }) => Promise<DataHandle>
-            toId: (handle: DataHandle) => string,
-            fromId: (id: string) => DataHandle,
-        }
-    }
+            fetch: (handle: DataHandle) => Promise<ArrayBuffer>;
+            store: (
+                data: ArrayBuffer,
+                options?: { shareable?: boolean; keep?: boolean },
+            ) => Promise<DataHandle>;
+            toId: (handle: DataHandle) => string;
+            fromId: (id: string) => DataHandle;
+        };
+    };
 
     export type CroquetModelOptions = object;
     export type CroquetViewOptions = object;
 
     export type CroquetDebugOption =
-        "session" | "messages" | "sends" | "snapshot" |
-        "data" | "hashing" | "subscribe" | "publish" | "events" | "classes" | "ticks" |
-        "write" | "offline";
+        | "session"
+        | "messages"
+        | "sends"
+        | "snapshot"
+        | "data"
+        | "hashing"
+        | "subscribe"
+        | "publish"
+        | "events"
+        | "classes"
+        | "ticks"
+        | "write"
+        | "offline";
 
     type ClassOf<M> = new (...args: any[]) => M;
 
     export type CroquetSessionParameters<M extends Model, V extends View, T> = {
-        apiKey?: string,
-        appId: string,
-        name?: string|Promise<string>,
-        password?: string|Promise<string>,
-        model: ClassOf<M>,
-        view?: ClassOf<V>,
-        options?: CroquetModelOptions,
-        viewOptions?: CroquetViewOptions,
-        viewData?: T,
-        location?: boolean,
-        step?: "auto" | "manual",
-        tps?: number|string,
-        autoSleep?: number|boolean,
-        rejoinLimit?: number,
-        eventRateLimit?: number,
-        reflector?: string,
-        files?: string,
-        box?: string,
-        debug?: CroquetDebugOption | Array<CroquetDebugOption>
-    }
+        apiKey?: string;
+        appId: string;
+        name?: string | Promise<string>;
+        password?: string | Promise<string>;
+        model: ClassOf<M>;
+        view?: ClassOf<V>;
+        options?: CroquetModelOptions;
+        viewOptions?: CroquetViewOptions;
+        viewData?: T;
+        location?: boolean;
+        step?: "auto" | "manual";
+        tps?: number | string;
+        autoSleep?: number | boolean;
+        rejoinLimit?: number;
+        eventRateLimit?: number;
+        reflector?: string;
+        files?: string;
+        box?: string;
+        debug?: CroquetDebugOption | Array<CroquetDebugOption>;
+    };
 
-    /**
-     * The Session is the entry point for a Croquet App.
-     *
-     * @hideconstructor
-     * @public
-     */
-    export class Session {
-
-        /**
-         * **Join a Croquet session.**
-         *
-         */
-        static join<M extends Model, V extends View, T>(
-            parameters: CroquetSessionParameters<M, V, T>
+    export namespace Session {
+        function join<M extends Model, V extends View, T>(
+            parameters: CroquetSessionParameters<M, V, T>,
         ): Promise<CroquetSession<V>>;
     }
 
@@ -957,32 +985,61 @@ declare module "@croquet/croquet" {
     export const VERSION: string;
 
     interface IApp {
-	sessionURL:string;
-	root:HTMLElement|null;
-	sync:boolean;
-	messages:boolean;
-	badge:boolean;
-	stats:boolean;
-	qrcode:boolean;
-	makeWidgetDock(options?:{debug?:boolean, iframe?:boolean, badge?:boolean, qrcode?:boolean, stats?:boolean, alwaysPinned?:boolean, fixedSize?:boolean}):void;
-	makeSessionWidgets(sessionId:string):void;
-	makeQRCanvas(options?:{text?:string, width?:number, height?:number, colorDark?:string, colorLight?:string, correctLevel?:("L"|"M"|"Q"|"H")}):any;
-	clearSessionMoniker():void;
-	showSyncWait(bool:boolean):void;
-	messageFunction(msg:string, options?:{
-	    duration?:number,
-	    gravity?:("bottom"|"top"),
-	    position?:("right"|"left"|"center"|"bottom"),
-	    backgroundColor?:string,
-	    stopOnFocus?:boolean
-	}):void;
-	showMessage(msg:string, options?:any):void;
-	isCroquetHost(hostname:string):boolean;
-	referrerURL():string;
-        autoSession:(name:string) => Promise<string>;
-        autoPassword:(options?:{key?:string, scrub:boolean, keyless:boolean}) => Promise<string>;
-        randomSession:(len?:number) => string;
-        randomPassword:(len?:number) => string;
+        sessionURL: string;
+        root: HTMLElement | null;
+        sync: boolean;
+        messages: boolean;
+        badge: boolean;
+        stats: boolean;
+        qrcode: boolean;
+        makeWidgetDock(options?: {
+            debug?: boolean;
+            iframe?: boolean;
+            badge?: boolean;
+            qrcode?: boolean;
+            stats?: boolean;
+            alwaysPinned?: boolean;
+            fixedSize?: boolean;
+        }): void;
+        makeSessionWidgets(sessionId: string): void;
+        makeQRCanvas(options?: {
+            text?: string;
+            width?: number;
+            height?: number;
+            colorDark?: string;
+            colorLight?: string;
+            correctLevel?: "L" | "M" | "Q" | "H";
+        }): HTMLCanvasElement | null;
+        clearSessionMoniker(): void;
+        showSyncWait(bool: boolean): void;
+        messageFunction(
+            msg: string,
+            options?: {
+                duration?: number;
+                gravity?: "bottom" | "top";
+                position?: "right" | "left" | "center" | "bottom";
+                backgroundColor?: string;
+                stopOnFocus?: boolean;
+            },
+        ): void;
+        showMessage(msg: string, options?: Record<string, unknown>): void;
+        isCroquetHost(hostname: string): boolean;
+        referrerURL(): string;
+        autoSession: (options?: {
+            key?: string;
+            force?: boolean;
+            default?: string;
+            keyless?: boolean;
+        }) => Promise<string>;
+        autoPassword: (options?: {
+            key?: string;
+            default?: string;
+            force?: boolean;
+            scrub?: boolean;
+            keyless?: boolean;
+        }) => Promise<string>;
+        randomSession: (len?: number) => string;
+        randomPassword: (len?: number) => string;
     }
 
     /**
@@ -995,9 +1052,13 @@ declare module "@croquet/croquet" {
 
 
     interface DataHandle {
-	store(sessionId:string, data:(string|ArrayBuffer), keep?:boolean):Promise<DataHandle>;
-	fetch(sessionid:string, handle:DataHandle):string|ArrayBuffer;
-	hash(data:((...arg:any) => void|string|DataView|ArrayBuffer), output?:string):string;
+        store(
+            sessionId: string,
+            data: string | ArrayBuffer,
+            keep?: boolean,
+        ): Promise<DataHandle>;
+        fetch(sessionid: string, handle: DataHandle): string | ArrayBuffer;
+        hash(data: unknown, output?: string): string;
     }
 
     /**
@@ -1010,13 +1071,11 @@ declare module "@croquet/croquet" {
 
 
     type Croquet = {
-        Model: typeof Model,
-        View: typeof View,
-        Session: typeof Session,
-        Data: DataHandle,
-        Constants: typeof Constants,
-        App: IApp,
-        // Messenger
-    }
-
+        Model: typeof Model;
+        View: typeof View;
+        Session: typeof Session;
+        Data: DataHandle;
+        Constants: typeof Constants;
+        App: IApp;
+    };
 }
