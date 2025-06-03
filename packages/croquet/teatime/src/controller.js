@@ -67,7 +67,7 @@ function initOptions() {
     // enable some opts by default via dev flag or being on localhost-equivalent
     const appOnCroquetIo = !NODE && window.location.hostname.match(/^(.*\.)?croquet\.io$/i);
     const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith("/dev/");
-    const devOrLocal = urlOptions.dev || (urlOptions.dev !== false && "localhost");
+    // const devOrLocal = urlOptions.dev || (urlOptions.dev !== false && "localhost");
     const devOrCroquetIoDev = urlOptions.dev || (urlOptions.dev !== false && appOnCroquetIoDev);
     DEBUG = {
         messages: urlOptions.has("debug", "messages", false),               // received messages
@@ -101,7 +101,7 @@ function setDebug(options={}) {
         else App.showMessage(`${App.libName}: unknown debug option "${key}"`, { level: "warning", only: "once" });
     }
     return DEBUG;
-};
+}
 
 /*
 function isLocalUrl(hostname) {
@@ -532,14 +532,14 @@ export default class Controller {
             apiKey: "none",
             signServer: "none",
             reflector: "none",
-        }
+        };
 
         if (urlOptions.box || urlOptions.reflector) { // box is croquet-in-a-box, see session.js
             return {
                 apiKey: "none",
                 signServer: "none",
                 reflector: urlOptions.reflector,
-            }
+            };
         }
 
         const keys = {};
@@ -560,7 +560,7 @@ export default class Controller {
         if (!key) throw Error(`No ${DEPIN ? "Multisynq" : "Croquet"} API key provided`);
 
         const apiKey = key.key;
-        let backend = urlOptions.backend || key.backend;
+        const backend = urlOptions.backend || key.backend;
         const overridden = urlOptions.reflector?.includes("/");
         if (backend === "none") {
             return {
