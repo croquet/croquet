@@ -1776,13 +1776,13 @@ async function startServerForDePIN() {
                         handleTerm(false); // cannot restart
                         break;
                     case 'pingFromMain':
-                        electronMain.postMessage({ what: 'pong' });
+                        sendToParent?.({ what: 'pong' });
                         break;
                     case 'stats':
-                        electronMain.postMessage({ what: 'stats', value: appStats() });
+                        sendToParent?.({ what: 'stats', value: appStats() });
                         break;
                     case 'debug':
-                        electronMain.postMessage({ what: 'debug', value: gatherSessionsStats() });
+                        sendToParent?.({ what: 'debug', value: gatherSessionsStats() });
                         break;
                     case 'queryWalletStats':
                         sendToDepinProxy?.({ what: 'QUERY_WALLET_STATS' });
