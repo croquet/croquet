@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
@@ -336,9 +335,6 @@ const depinTimeouts = {
     AUDIT_INTERVAL: 60_000,
 };
 
-// this is used before we even talk to the registry
-const ICE_SERVER_FETCH_LIMIT = 10_000; // how long to wait before going ahead without TURN servers
-
 // generate a key that will be passed to the proxy so it can detect and reject
 // multiple independent connecting processes.
 const NODE_PROCESS_KEY = getRandomString(6);
@@ -421,7 +417,7 @@ async function startServerForDePIN() {
             const sessionPrefix = shortSessionId + ':';
             const cleanMap = map => {
                 for (const id of [...map.keys()]) {
-                    if (id.startsWith(sessionPrefix)) map.delete(id)
+                    if (id.startsWith(sessionPrefix)) map.delete(id);
                 }
             };
             cleanMap(this.peerConnections);
@@ -435,6 +431,7 @@ async function startServerForDePIN() {
 
     let nodeDataChannel;
     try {
+        // eslint-disable-next-line import/no-unresolved
         nodeDataChannel = await import('node-datachannel'); // can't (and in fact don't want to) use static require()
     } catch (err) {
         global_logger.error({ event: "node-datachannel-not-found" }, err.message || err);
@@ -633,7 +630,7 @@ async function startServerForDePIN() {
                         registerRegion = newRegisterRegion;
 
                         if (timeoutSettings) {
-                            let overrides = [];
+                            const overrides = [];
                             for (const [k, v] of Object.entries(timeoutSettings)) {
                                 if (depinTimeouts[k] !== v) {
                                     depinTimeouts[k] = v;
@@ -708,7 +705,7 @@ async function startServerForDePIN() {
                         depinCreditTallies.syncLifeTraffic = lifeTraffic;
                         depinCreditTallies.syncLifePoints = lifePoints;
                         depinCreditTallies.walletLifePoints = walletPoints;
-                        depinCreditTallies.walletBalance = walletBalance
+                        depinCreditTallies.walletBalance = walletBalance;
                         break;
                     }
                     case 'UPDATE_RATINGS': {
@@ -751,15 +748,18 @@ async function startServerForDePIN() {
                             case 'VERSION-INVALID':
                                 global_logger.warn({ event: "exit-needs-update", version: depinMsg.details.version }, `invalid synchronizer version ${depinMsg.details.version}`);
                                 process.exit(EXIT.BAD_VERSION);
+                                break; // for linter
                             case 'VERSION-UNSUPPORTED':
                                 global_logger.warn({ event: "exit-needs-update", version: depinMsg.details.version, expected: depinMsg.details.expected }, `unsupported synchronizer version ${depinMsg.details.version} (expected ${depinMsg.details.expected})`);
                                 process.exit(EXIT.BAD_VERSION);
-                            case 'KEY-REJECTED':
+                                break; // for linter
+                            case 'KEY-REJECTED': {
                                 const rejectionReason = depinMsg.details.reason;
                                 global_logger.warn({ event: "exit-synq-key-rejected", synqKey: depinMsg.details.synqKey, reason: rejectionReason }, `key ${depinMsg.details.synqKey} rejected: ${rejectionReason}`);
                                 sendToParent?.({ what: 'synqKeyRejected', reason: rejectionReason });
                                 setTimeout(() => process.exit(EXIT.NORMAL), 500); // leave a little time for the UI to reset itself
                                 break;
+                            }
                             default:
                                 global_logger.error({ event: "unknown-registry-error", reason: depinMsg.reason, details: depinMsg.details}, `unhandled registry error: ${depinMsg.reason}${depinMsg.details ? " " + JSON.stringify(depinMsg.details) : ''}`);
                         }
@@ -1191,7 +1191,7 @@ async function startServerForDePIN() {
                             session.logger.info({ event: "runner-abandoned" }, `session runner for ${shortSessionId} abandoned this synchronizer`);
                             session.offload("abandoned by session runner");
                             break;
-                        case "CONNECT":
+                        case "CONNECT": {
                             // a peer connection isn't set up until the client sends an offer.
                             // at the time of each client's connection, the session runner sends
                             // us the registry's latest ICE servers list.
@@ -1236,6 +1236,7 @@ async function startServerForDePIN() {
 
                             session.logger.debug({ event: "client-connected", clientId }, `new client connection ${globalClientId} from ${depinMsg.xLocation.split(',')[0]}`);
                             break;
+                        }
                         case "DISCONNECT":
                             session.logger.debug({ event: "client-signaling-closed", clientId }, `client ${globalClientId} closed signaling`);
                             // if the client already has a data channel, this disconnection
@@ -1560,6 +1561,7 @@ async function startServerForDePIN() {
                 ? ["fetch timed out", 504]
                 : ["fetch failed", 500];
 
+            // eslint-disable-next-line no-throw-literal
             throw {
                 message: errorDetails[0],
                 code: errorDetails[1],
@@ -1626,7 +1628,7 @@ async function startServerForDePIN() {
         // $$$ we only gather for sessions that are active right now.  the final stats
         // for any session that was offloaded at some point since the previous report
         // will therefore be lost.  in due course we'll need to fix this.
-        let sessionRecords = [];
+        const sessionRecords = [];
         for (const [id, session] of ALL_SESSIONS.entries()) { // running or not
             const sessionRecord = { id: id.slice(0, 8) };
             const { depinStats } = session;
@@ -1654,8 +1656,8 @@ async function startServerForDePIN() {
                 for (const client of island.clients) {
                     const { iceMS, connectionType, latency, meta } = client;
                     const conn = { c: types[connectionType.c] || '', s: types[connectionType.s] || '' }; // abbreviate
-                    const { shortId: id } = meta;
-                    const clientRecord = { id, ice_s: (iceMS / 1000).toFixed(1), conn };
+                    const { shortId } = meta;
+                    const clientRecord = { id: shortId, ice_s: (iceMS / 1000).toFixed(1), conn };
                     if (latency.count) {
                         const avg = Math.round(latency.sum / latency.count);
                         clientRecord.l = { avg, min: latency.min, max: latency.max };
@@ -1703,7 +1705,7 @@ async function startServerForDePIN() {
     }
 
     function startUtilityApp(pathUrl, appName, synchSpec, testKey) {
-        const decoder = new TextDecoder()
+        const decoder = new TextDecoder();
 
         const appFile = path.join(__dirname, 'app_wrapper.js');
         const args = [pathUrl, appName, testKey]; // app_wrapper puts the third arg into Constants, to make a dedicated session
@@ -1790,7 +1792,7 @@ async function startServerForDePIN() {
                     default:
                         global_logger.warn({ event: "unrecognized-app-message", what: msg.what }, `unrecognized message from app: "${msg.what}`);
                 }
-            } catch(err) {
+            } catch (err) {
                 global_logger.error({ event: "app-message-error", data: e.data, err }, `error processing app message "${JSON.stringify(e.data)}": ${err}`);
             }
 
@@ -2512,6 +2514,7 @@ async function JOIN(client, args) {
                 if (DEPIN) {
                     if (err.persisted) persisted = { url: err.persisted };
                 } else { // GCP
+                    // eslint-disable-next-line no-lonely-if
                     if (island.developerId) {
                         const bucket = FILE_BUCKETS[island.region] || FILE_BUCKETS.default;
                         const path = `u/${island.developerId}/${appId}/${persistentId}/saved.json`;
@@ -4085,58 +4088,58 @@ const escapeStringRegexp = string => {
     // embedded by clean-stack, from https://www.npmjs.com/package/escape-string-regexp
 
     // Escape characters with special meaning either inside or outside character sets.
-	// Use a simple backslash escape when it’s always valid, and a `\xnn` escape when the simpler form would be disallowed by Unicode patterns’ stricter grammar.
-	return string
-		.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&')
-		.replace(/-/g, '\\x2d');
+    // Use a simple backslash escape when it’s always valid, and a `\xnn` escape when the simpler form would be disallowed by Unicode patterns’ stricter grammar.
+    return string
+        .replace(/[|\\{}()[\]^$+*?.]/g, '\\$&')
+        .replace(/-/g, '\\x2d');
 };
 
 const extractPathRegex = /\s+at.*[(\s](.*)\)?/;
 const pathRegex = /^(?:(?:(?:node|node:[\w/]+|(?:(?:node:)?internal\/[\w/]*|.*node_modules\/(?:babel-polyfill|pirates)\/.*)?\w+)(?:\.js)?:\d+:\d+)|native)/;
 
 function cleanStack(stack, {pretty = false, basePath, pathFilter} = {}) {
-	const basePathRegex = basePath && new RegExp(`(file://)?${escapeStringRegexp(basePath.replace(/\\/g, '/'))}/?`, 'g');
-	const homeDirectory = pretty ? getHomeDirectory() : '';
+    const basePathRegex = basePath && new RegExp(`(file://)?${escapeStringRegexp(basePath.replace(/\\/g, '/'))}/?`, 'g');
+    const homeDirectory = pretty ? getHomeDirectory() : '';
 
-	if (typeof stack !== 'string') {
-		return undefined;
-	}
+    if (typeof stack !== 'string') {
+        return undefined;
+    }
 
-	return stack.replace(/\\/g, '/')
-		.split('\n')
-		.filter(line => {
-			const pathMatches = line.match(extractPathRegex);
-			if (pathMatches === null || !pathMatches[1]) {
-				return true;
-			}
+    return stack.replace(/\\/g, '/')
+        .split('\n')
+        .filter(line => {
+            const pathMatches = line.match(extractPathRegex);
+            if (pathMatches === null || !pathMatches[1]) {
+                return true;
+            }
 
-			const match = pathMatches[1];
+            const match = pathMatches[1];
 
-			// Electron
-			if (
-				match.includes('.app/Contents/Resources/electron.asar')
-				|| match.includes('.app/Contents/Resources/default_app.asar')
-				|| match.includes('node_modules/electron/dist/resources/electron.asar')
-				|| match.includes('node_modules/electron/dist/resources/default_app.asar')
-			) {
-				return false;
-			}
+            // Electron
+            if (
+                match.includes('.app/Contents/Resources/electron.asar')
+                || match.includes('.app/Contents/Resources/default_app.asar')
+                || match.includes('node_modules/electron/dist/resources/electron.asar')
+                || match.includes('node_modules/electron/dist/resources/default_app.asar')
+            ) {
+                return false;
+            }
 
-			return pathFilter
-				? !pathRegex.test(match) && pathFilter(match)
-				: !pathRegex.test(match);
-		})
-		.filter(line => line.trim() !== '')
-		.map(line => {
-			if (basePathRegex) {
-				line = line.replace(basePathRegex, '');
-			}
+            return pathFilter
+                ? !pathRegex.test(match) && pathFilter(match)
+                : !pathRegex.test(match);
+        })
+        .filter(line => line.trim() !== '')
+        .map(line => {
+            if (basePathRegex) {
+                line = line.replace(basePathRegex, '');
+            }
 
-			if (pretty) {
-				line = line.replace(extractPathRegex, (m, p1) => m.replace(p1, p1.replace(homeDirectory, '~')));
-			}
+            if (pretty) {
+                line = line.replace(extractPathRegex, (m, p1) => m.replace(p1, p1.replace(homeDirectory, '~')));
+            }
 
-			return line;
-		})
-		.join('\n');
+            return line;
+        })
+        .join('\n');
 }

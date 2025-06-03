@@ -25,6 +25,7 @@
     "jsonwebtoken": "^8.5.1",
     "node-fetch": "^2.6.7",
     "pino": "^8.5.0",
+    "pino-std-serializers": "^7.0.0",
     "prom-client": "^14.1.0",
     "utf-8-validate": "^5.0.9",
     "ws": "^8.8.1"
