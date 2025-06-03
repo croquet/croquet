@@ -2,7 +2,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.5.0"; // should match package.json
+const SYNCH_VERSION = "2.6.0"; // should match package.json
 
 const os = require('node:os');
 const fs = require('node:fs');
@@ -462,6 +462,12 @@ async function startServerForDePIN() {
     // a production synchronizer can only use bundled app code
     const UTILITY_APP_PATH = DEPIN === DEPIN_API_DEFAULT ? 'internal' : 'https://downloads.multisynq.dev';
 
+    const sendToParent = process.parentPort
+    ? msgObj => process.parentPort.postMessage(msgObj)
+    : process.send
+        ? msgObj => process.send(msgObj)
+        : null;
+
     let proxyId;        // the ID of the worker running the proxy for this sync
     let proxySocket = null;
     let proxyConnectionState = 'RECONNECTING'; // "CONNECTED", "RECONNECTING", "UNAVAILABLE"
@@ -613,7 +619,6 @@ async function startServerForDePIN() {
             if (thisConnectTime !== proxyLatestConnectTime) return; // this connection has been superseded
 
             try {
-                const electronMain = process.parentPort;
                 const depinMsg = JSON.parse(depinStr);
                 switch (depinMsg.what) {
                     case "REGISTERED": {
@@ -661,7 +666,7 @@ async function startServerForDePIN() {
 
                         // if there is a connected parent process (assumed to be Electron),
                         // give it some details now.
-                        electronMain?.postMessage({ what: 'syncDetails', ipHash, version: SYNCH_VERSION, region: registerRegion });
+                        sendToParent?.({ what: 'syncDetails', ipHash, version: SYNCH_VERSION, region: registerRegion });
                         break;
                     }
                     case "SESSION": {
@@ -690,12 +695,12 @@ async function startServerForDePIN() {
                         break;
                     case 'DEMO_TOKEN': {
                         const { token } = depinMsg;
-                        electronMain?.postMessage({ what: 'demoToken', token });
+                        sendToParent?.({ what: 'demoToken', token });
                         break;
                     }
                     case 'DEVELOPER_TOKEN': {
                         const { token } = depinMsg;
-                        electronMain?.postMessage({ what: 'developerToken', token });
+                        sendToParent?.({ what: 'developerToken', token });
                         break;
                     }
                     case 'UPDATE_TALLIES': {
@@ -752,8 +757,9 @@ async function startServerForDePIN() {
                             case 'KEY-REJECTED':
                                 const rejectionReason = depinMsg.details.reason;
                                 global_logger.warn({ event: "exit-synq-key-rejected", synqKey: depinMsg.details.synqKey, reason: rejectionReason }, `key ${depinMsg.details.synqKey} rejected: ${rejectionReason}`);
-                                electronMain?.postMessage({ what: 'synqKeyRejected', reason: rejectionReason });
+                                sendToParent?.({ what: 'synqKeyRejected', reason: rejectionReason });
                                 setTimeout(() => process.exit(EXIT.NORMAL), 500); // leave a little time for the UI to reset itself
+                                break;
                             default:
                                 global_logger.error({ event: "unknown-registry-error", reason: depinMsg.reason, details: depinMsg.details}, `unhandled registry error: ${depinMsg.reason}${depinMsg.details ? " " + JSON.stringify(depinMsg.details) : ''}`);
                         }
@@ -1758,11 +1764,11 @@ async function startServerForDePIN() {
 
     }
 
-    // listen for messages from Electron
-    if (process.parentPort) {
-        // receive app-main's synchProcess.postMessage()
-        const electronMain = process.parentPort;
-        electronMain.on('message', e => {
+    // listen for messages from Electron or other parent process
+    const portFromParent = process.parentPort || (process.send && process);
+    if (portFromParent) {
+        // receive app-main's synchProcess.postMessage() or parent's synchProcess.send()
+        portFromParent.on('message', e => {
             try {
                 const msg = e.data;
                 switch (msg.what) {

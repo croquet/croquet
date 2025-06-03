@@ -4,6 +4,8 @@ This is a private summary of changes.
 
 # reflector
 
+* 2.6.0 2025-06-03 able to run as child process of non-Electron launcher
+* 2.5.0 2025-05-06 support Synq Key; monad community wallet
 * 2.4.0 2025-04-10 Croquet 2.0; condense status reports
 * 2.3.0 2025-04-07 ICE servers from registry; session housekeeping tweaks
 * 2.2.0 2025-03-20 rename back to reflector.js; ICE servers url from env; custom node-datachannel build
