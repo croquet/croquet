@@ -4,6 +4,7 @@ This is a private summary of changes.
 
 # reflector
 
+* 2.6.1 2025-06-04 fix to child/parent comms
 * 2.6.0 2025-06-03 able to run as child process of non-Electron launcher
 * 2.5.0 2025-05-06 support Synq Key; monad community wallet
 * 2.4.0 2025-04-10 Croquet 2.0; condense status reports
