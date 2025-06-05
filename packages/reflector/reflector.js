@@ -1,7 +1,7 @@
 /* eslint-disable object-shorthand */
 /* eslint-disable prefer-arrow-callback */
 
-const SYNCH_VERSION = "2.6.0"; // should match package.json
+const SYNCH_VERSION = "2.6.1"; // should match package.json
 
 const os = require('node:os');
 const fs = require('node:fs');
@@ -1772,7 +1772,8 @@ async function startServerForDePIN() {
         // receive app-main's synchProcess.postMessage() or parent's synchProcess.send()
         portFromParent.on('message', e => {
             try {
-                const msg = e.data;
+                // messages from Electron have the structure { data }
+                const msg = process.parentPort ? e.data : e;
                 switch (msg.what) {
                     case 'shutdown':
                         handleTerm(false); // cannot restart
