@@ -6,6 +6,9 @@ These are detailed internal changes. The user-facing change log is at the end of
 
 # latest @dev
 
+# 2025-06-09 2.0.4
+- patch unused require("crypto") out of the random number generator
+
 # 2025-06-05 2.0.3
 - fix type declaration for init and autoSession
 - enable init-snapshot by default
