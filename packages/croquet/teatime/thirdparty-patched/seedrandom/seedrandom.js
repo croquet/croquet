@@ -20,9 +20,15 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+Patched 2025 by Croquet Labs to:
+- remove import of `crypto` module
+- use ES6 module syntax.
+- remove Math patching
+- remove global entropy pool and autoseeding
+- remove unused code
+
 */
 
-(function (global, pool, math) {
 //
 // The following constants are related to IEEE 754 limits.
 //
@@ -30,25 +36,23 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 var width = 256,        // each RC4 output is 0 <= x < 256
     chunks = 6,         // at least six RC4 outputs for each double
     digits = 52,        // there are 52 significant digits in a double
-    rngname = 'random', // rngname: name for Math.random and Math.seedrandom
-    startdenom = math.pow(width, chunks),
-    significance = math.pow(2, digits),
+    startdenom = Math.pow(width, chunks),
+    significance = Math.pow(2, digits),
     overflow = significance * 2,
-    mask = width - 1,
-    nodecrypto;         // node.js crypto module, initialized at the bottom.
+    mask = width - 1;
 
 //
 // seedrandom()
-// This is the seedrandom function described above.
 //
-function seedrandom(seed, options, callback) {
+function seedrandom(seed, options) {
   var key = [];
-  options = (options == true) ? { entropy: true } : (options || {});
+  options = options || {};
 
-  // Flatten the seed string or build one from local entropy if needed.
-  var shortseed = mixkey(flatten(
-    options.entropy ? [seed, tostring(pool)] :
-    (seed == null) ? autoseed() : seed, 3), key);
+  if (options.entropy) throw new Error('this version of seedrandom does not support entropy');
+  if (seed == null && !options.state) throw new Error('this version of seedrandom requires a seed');
+
+  // Flatten the seed string
+  mixkey(flatten(seed, 3), key);
 
   // Use the seed to initialize an ARC4 generator.
   var arc4 = new ARC4(key);
@@ -76,30 +80,17 @@ function seedrandom(seed, options, callback) {
   prng.quick = function() { return arc4.g(4) / 0x100000000; }
   prng.double = prng;
 
-  // Mix the randomness into accumulated entropy.
-  mixkey(tostring(arc4.S), pool);
-
-  // Calling convention: what to return as a function of prng, seed, is_math.
-  return (options.pass || callback ||
-      function(prng, seed, is_math_call, state) {
+  return (options.pass ||
+      function(prng, state) {
         if (state) {
           // Load the arc4 state from the given state if it has an S array.
           if (state.S) { copy(state, arc4); }
           // Only provide the .state method if requested via options.state.
           prng.state = function() { return copy(arc4, {}); }
         }
-
-        // If called as a method of Math (Math.seedrandom()), mutate
-        // Math.random because that is how seedrandom.js has worked since v1.0.
-        if (is_math_call) { math[rngname] = prng; return seed; }
-
-        // Otherwise, it is a newer calling convention, so return the
-        // prng directly.
-        else return prng;
+        return prng;
       })(
   prng,
-  shortseed,
-  'global' in options ? options.global : (this == math),
   options.state);
 }
 
@@ -186,29 +177,6 @@ function mixkey(seed, key) {
 }
 
 //
-// autoseed()
-// Returns an object for autoseeding, using window.crypto and Node crypto
-// module if available.
-//
-function autoseed() {
-  try {
-    var out;
-    if (nodecrypto && (out = nodecrypto.randomBytes)) {
-      // The use of 'out' to remember randomBytes makes tight minified code.
-      out = out(width);
-    } else {
-      out = new Uint8Array(width);
-      (global.crypto || global.msCrypto).getRandomValues(out);
-    }
-    return tostring(out);
-  } catch (e) {
-    var browser = global.navigator,
-        plugins = browser && browser.plugins;
-    return [+new Date, global, plugins, global.screen, tostring(pool)];
-  }
-}
-
-//
 // tostring()
 // Converts an array of charcodes to a string
 //
@@ -216,38 +184,4 @@ function tostring(a) {
   return String.fromCharCode.apply(0, a);
 }
 
-//
-// When seedrandom.js is loaded, we immediately mix a few bits
-// from the built-in RNG into the entropy pool.  Because we do
-// not want to interfere with deterministic PRNG state later,
-// seedrandom will not call math.random on its own again after
-// initialization.
-//
-mixkey(math.random(), pool);
-
-//
-// Nodejs and AMD support: export the implementation as a module using
-// either convention.
-//
-if ((typeof module) == 'object' && module.exports) {
-  module.exports = seedrandom;
-  // When in node.js, try using crypto package for autoseeding.
-  try {
-    nodecrypto = require('crypto');
-  } catch (ex) {}
-} else if ((typeof define) == 'function' && define.amd) {
-  define(function() { return seedrandom; });
-} else {
-  // When included as a plain script, set up Math.seedrandom global.
-  math['seed' + rngname] = seedrandom;
-}
-
-
-// End anonymous scope, and pass initial values.
-})(
-  // global: `self` in browsers (including strict mode and web workers),
-  // otherwise `this` in Node and other environments
-  (typeof self !== 'undefined') ? self : this,
-  [],     // pool: entropy pool starts empty
-  Math    // math: package containing random, pow, and seedrandom
-);
+export default seedrandom;
