@@ -1,5 +1,5 @@
 import stableStringify from "fast-json-stable-stringify";
-import SeedRandom from "seedrandom/seedrandom";
+import SeedRandom from "../thirdparty-patched/seedrandom/seedrandom";
 import "@croquet/math"; // creates globalThis.CroquetMath
 import PriorityQueue from "./priorityQueue";
 import { Stats } from "./_STATS_MODULE_"; // eslint-disable-line import/no-unresolved
