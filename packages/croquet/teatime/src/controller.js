@@ -2819,7 +2819,9 @@ class Connection {
             // the onclose handling directly.
             this.socket.onclose = null;
             try {
-                this.socket.close(code, message); // might work, might not
+                let reason = message;
+                if (reason && reason.length > 123) reason = reason.slice(0, 123);
+                this.socket.close(code, reason); // might work, might not
             } catch (e) { console.error(`Error in socket.close(${code}, ${JSON.stringify(message)}):`, e); }
         }
         // whether there was a socket or not, reset the connection so we can try again
