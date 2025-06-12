@@ -28,3 +28,7 @@ As defined in the `docker-compose.yml` file it runs two docker images – one f
 
 On [localhost:8888](http://localhost:8888/) is the web server (serving `./webroot`),
 [localhost:8888/files](http://localhost:8888/files/) is the file server (upload and download to `./files`), and [localhost:8888/reflector](http://localhost:8888/reflector) is the reflector.
+
+## Caveat
+
+Until someone implements local session storage, the reflector will forget that a session existed once the last client disconnects, and start a fresh session when the next client joins. Code for this exists in the reflector, but the only codepaths are for the Croquet and Multisynq infrastructure. There would need to be a code path that stores the session info in a file on disk, and restores the session from that file when a client connects.
