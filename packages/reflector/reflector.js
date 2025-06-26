@@ -16,10 +16,13 @@ const { wrapErrorSerializer } = require('pino-std-serializers');
 const { Storage } = require('@google-cloud/storage');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 
+const { LocalDirectory } = require("./localfs.js");
+
 // command line args
 
 const ARGS = {
     NO_STORAGE: "--storage=none",
+    FILE_STORAGE: "--storage=file",
     APPS_ONLY: "--storage=persist",
     STANDALONE: "--standalone",
     HTTPS: "--https",
@@ -101,7 +104,9 @@ function getRandomString(length) {
 }
 const SYNCNAME = parseArgWithValue(ARGS.SYNCNAME) || getRandomString(8) + getRandomString(8);
 
-const GCP_PROJECT = process.env.GCP_PROJECT; // only set if we're running on Google Cloud
+const FILE_STORAGE = process.argv.includes(ARGS.FILE_STORAGE); // use local fs-based API to store session data.
+
+const GCP_PROJECT = FILE_STORAGE ? "local" : process.env.GCP_PROJECT; // only set if we're running on Google Cloud
 
 const NO_STORAGE = !!DEPIN || process.argv.includes(ARGS.NO_STORAGE); // no GCP bucket access (true on DePIN, because the session DO receives state)
 const NO_DISPATCHER = NO_STORAGE || process.argv.includes(ARGS.STANDALONE); // no session deregistration
@@ -272,9 +277,11 @@ let SECRET;
 // on GCP, we use Google Cloud Storage for session state
 const storage = new Storage();
 
-const SESSION_BUCKET = NO_STORAGE ? null
-                        : GCP_PROJECT === 'croquet-proj' ? storage.bucket(`croquet-sessions-v1`)
-                        : storage.bucket(`${GCP_PROJECT}-sessions-v1`);
+const SESSION_BUCKET = FILE_STORAGE ?
+      new LocalDirectory(GCP_PROJECT) :
+      (NO_STORAGE ? null
+       : GCP_PROJECT === 'croquet-proj' ? storage.bucket(`croquet-sessions-v1`)
+       : storage.bucket(`${GCP_PROJECT}-sessions-v1`));
 
 const DISPATCHER_BUCKET = NO_DISPATCHER ? null
                             : GCP_PROJECT === 'croquet-proj' ? storage.bucket(`croquet-reflectors-v1`)
@@ -288,7 +295,15 @@ const FILE_BUCKETS = {
     jp: STORE_PERSISTENT_DATA ? storage.bucket('files.jp.croquet.io') : null,
     us: STORE_PERSISTENT_DATA ? storage.bucket('files.us.croquet.io') : null,
 };
-FILE_BUCKETS.default = FILE_BUCKETS.us;
+
+if (!FILE_STORAGE) {
+    FILE_BUCKETS.default = FILE_BUCKETS.us;
+} else {
+    FILE_BUCKETS.default = new LocalDirectory("local-files");
+    FILE_BUCKETS.eu = FILE_BUCKETS.default;
+    FILE_BUCKETS.jp = FILE_BUCKETS.default;
+    FILE_BUCKETS.us = FILE_BUCKETS.default;
+}
 
 // return codes for closing connection
 // client wil try to reconnect for codes < 4100

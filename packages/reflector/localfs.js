@@ -104,12 +104,13 @@ class LocalFile {
     }
 
     async createWriteStream(options = {}) {
-        this.handle = new BucketFileHandle(this.path, "w");
+        console.log("for write", this.path);
+        this.handle = new LocalFileHandle(this.path, "w");
         await this.handle.open();
         return this.handle;
     }
     async createReadStream(options = {}) {
-        this.handle = new BucketFileHandle(this.path, "r");
+        this.handle = new LocalFileHandle(this.path, "r");
         await this.handle.open();
         return this.handle;
     }
@@ -121,6 +122,6 @@ export class LocalDirectory {
     }
 
     file(filename) {
-        return new BucketFile(path.resolve(this.path, filename));
+        return new LocalFile(path.resolve(this.path, filename));
     }
 }
