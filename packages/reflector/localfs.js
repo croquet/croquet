@@ -75,10 +75,10 @@ class LocalFileHandle {
                     let more = true;
                     while (more) {
                         let object = await this.handle.read();
-                        console.log("bytesRead", object.bytesRead);
+                        // console.log("bytesRead", object.bytesRead);
                         if (object.bytesRead > 0) {
                             let str = object.buffer.toString("utf8", 0, object.bytesRead);
-                            console.log("read", str);
+                            // console.log("read", str);
                             if (this.dataHandler) {
                                 this.dataHandler(str);
                             }
@@ -104,7 +104,6 @@ class LocalFile {
     }
 
     async createWriteStream(options = {}) {
-        console.log("for write", this.path);
         this.handle = new LocalFileHandle(this.path, "w");
         await this.handle.open();
         return this.handle;
