@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: ./croquet-in-a-box.sh [port] [web-root-path] [files-root-path] [files-mount-path]
+# usage: ./build.sh [port] [web-root-path] [files-root-path] [files-mount-path]
 #   port:          port to listen on (default: 8888)
 #   web-root-path: path to website root (default: ./webroot)
 #   files-root-path: path to files root (default: ./_files)
@@ -39,16 +39,8 @@ rm -rf build
 cp -a $REFLECTOR_PATH build
 rm -rf build/node_modules
 
-cat > build/reflector.sh <<-EOF
-#!/bin/sh
-node reflector.js $REFLECTOR_ARGS \
-  | npx pino-pretty -Sctlm message
-EOF
-
 cat > build/Dockerfile <<-EOF
 FROM node:18-alpine
-RUN apk add --update python3 make g++ \
-   && rm -rf /var/cache/apk/*
 WORKDIR /usr/src/reflector
 COPY package*.json reflector.js localfs.js .pino-prettyrc ./
 RUN apk add --update python3 make g++\
@@ -65,4 +57,4 @@ CMD [ "./reflector.sh" ]
 EOF
 
 # run reflector and nginx as defined in docker-compose.yml
-docker compose up
+docker compose build reflector
