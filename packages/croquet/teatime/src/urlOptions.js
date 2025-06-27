@@ -1,4 +1,4 @@
-const sessionFromPath = window.location.hostname.endsWith("croquet.studio");
+const sessionFromPath = window && window.location.hostname.endsWith("croquet.studio");
 let sessionApp = "";
 let sessionArgs = "";
 

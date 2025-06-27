@@ -6,8 +6,24 @@ These are detailed internal changes. The user-facing change log is at the end of
 
 # latest @dev
 
-* pass all args from Model.create() to init() instead of just the first two
-* catch disconnect during fast-forward
+# 2025-06-09 2.0.4
+- patch unused require("crypto") out of the random number generator
+
+# 2025-06-05 2.0.3
+- fix type declaration for init and autoSession
+- enable init-snapshot by default
+
+# 2025-05-19 2.0.2
+
+- more error checking
+- show QR code even in iframe
+- fix type def for Constants
+
+# 2025-04-23 2.0.1
+
+* 2.0.1-2 consistently use Croquet or Multisynq in log messages
+* 2.0.1-1 publish only prod builds
+* 2.0.1-0 pass all args from Model.create() to init(), catch disconnect during fast-forward, add Croquet.VERSION
 
 # 2025-04-08 2.0.0
 

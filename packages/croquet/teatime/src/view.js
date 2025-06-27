@@ -1,4 +1,4 @@
-import { displayStatus, displayWarning, displayError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
+import { App, displayStatus, displayWarning, displayError } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 import { currentRealm, inViewRealm } from "./realms";
 import { viewDomain } from "./domain";
 import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
@@ -53,7 +53,7 @@ class View {
      * @public
      */
     constructor(model) {
-        if (typeof model !== "object" || !("__realm" in model)) console.warn(`Croquet: argument to View constructor needs to be a Model`);
+        if (typeof model !== "object" || !("__realm" in model)) console.warn(`${App.libName}: argument to View constructor needs to be a Model`);
         let realm = currentRealm("");
         if (!realm || !realm.isViewRealm()) {
             realm = inViewRealm(model.__realm.vm, () => currentRealm(), true);
@@ -220,9 +220,10 @@ class View {
      */
     subscribe(scope, eventSpec, callback) {
         if (typeof callback === "string") callback = this[callback];
+        if (typeof callback !== "function") throw Error(`${App.libName}: subscribe() handler is not a function`);
         const unbound = callback;
         callback = unbound.bind(this);
-        callback.unbound = unbound;
+        callback.unbound = unbound; // for unsubscribing
         const {event, handling} = eventSpec.event ? eventSpec : {event: eventSpec};
         this.realm.subscribe(event, this.id, callback, scope, handling);
     }

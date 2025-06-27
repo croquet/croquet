@@ -3,6 +3,7 @@ import stableStringify from "fast-json-stable-stringify";
 import WordArray from "crypto-js/lib-typedarrays";
 import sha256 from "crypto-js/sha256";
 import urlOptions from "./_URLOPTIONS_MODULE_"; // eslint-disable-line import/no-unresolved
+import { App } from "./_HTML_MODULE_"; // eslint-disable-line import/no-unresolved
 
 const NODE = croquet_build_process.env.CROQUET_PLATFORM === 'node';
 
@@ -11,7 +12,7 @@ if (globalThis.crypto && globalThis.crypto.subtle && typeof globalThis.crypto.su
     digest = globalThis.crypto.subtle.digest.bind(globalThis.crypto.subtle);
 } else {
     digest = (algorithm, arrayBuffer) => {
-        if (algorithm !== "SHA-256") throw Error("Croquet: only SHA-256 available");
+        if (algorithm !== "SHA-256") throw Error(`${App.libName}: only SHA-256 available`);
         const inputWordArray = WordArray.create(arrayBuffer);
         const outputWordArray = sha256(inputWordArray);
         const bytes = cryptoJsWordArrayToUint8Array(outputWordArray);
@@ -124,7 +125,7 @@ export function addConstantsHash(constants) {
     const string = stableStringify(obj);
     const hashPromise = hashString(string);
     hashPromises.push(hashPromise);
-    hashPromise.then(hash => debugHashes[hash].what = "Croquet Constants");
+    hashPromise.then(hash => debugHashes[hash].what = `${App.libName} Constants`);
 }
 
 /** generate persistentId for the vm */
@@ -163,7 +164,7 @@ export async function hashSessionAndCode(persistentId, developerId, params, hash
     // log all hashes if debug=hashing
     if (debugHashing() && !logged.has(id)) {
         const charset = NODE ? 'utf-8' : [...document.getElementsByTagName('meta')].find(el => el.getAttribute('charset'));
-        if (!charset) console.warn('Croquet: Missing <meta charset="..."> declaration. Croquet model code hashing might differ between browsers.');
+        if (!charset) console.warn(`${App.libName}: Missing <meta charset="..."> declaration. ${App.libName} model code hashing might differ between browsers.`);
         debugHashes[computedCodeHash].what = "Version ID";
         debugHashes[persistentId].what = "Persistent ID";
         debugHashes[id].what = "Session ID";
@@ -173,7 +174,7 @@ export async function hashSessionAndCode(persistentId, developerId, params, hash
             debugHashes[effectiveCodeHash] = { what: "Version ID (as specified by overrideHash)"};
         }
         const allHashes = [...codeHashes, effectiveCodeHash, persistentId, id].map(each => ({ hash: each, ...debugHashes[each]}));
-        console.log(`Croquet: Debug Hashing for session ${id}${cacheAnnotation}`, allHashes);
+        console.log(`${App.libName}: Debug Hashing for session ${id}${cacheAnnotation}`, allHashes);
         logged.add(id);
     }
     if (!debugHashing()) debugHashes = {}; // clear debugHashes to save memory

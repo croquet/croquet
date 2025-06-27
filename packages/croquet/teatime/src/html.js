@@ -1,5 +1,5 @@
 import Toastify from 'toastify-js';
-import SeedRandom from "seedrandom/seedrandom";
+import SeedRandom from "../thirdparty-patched/seedrandom/seedrandom";
 import QRCode from "../thirdparty-patched/qrcodejs/qrcode";
 import urlOptions from "./urlOptions";
 import { toBase64url } from "./hashing";
@@ -7,7 +7,7 @@ import { makeStats } from "./stats";
 
 
 const TOUCH = 'ontouchstart' in document.documentElement;
-const IFRAMED = window.parent !== window;
+const IFRAMED = window && window.parent !== window;
 const BAR_PROPORTION = 18; // height of dock, in % of content size
 const BUTTON_RIGHT = 2; // %
 const BUTTON_WIDTH = TOUCH ? 20 : 12; // %
@@ -347,7 +347,7 @@ function makeWidgetDock(options = {}) {
     const dockDiv = document.createElement('div');
     dockDiv.id = 'croquet_dock';
     if (debug) dockDiv.classList.add("debug");
-    if (IFRAMED && !options.iframe) dockDiv.style.display = "none";
+    if (IFRAMED && options.iframe === false) dockDiv.style.display = "none";
     dockParent.appendChild(dockDiv);
 
     const barDiv = document.createElement('div');
@@ -752,6 +752,8 @@ const seenMessages = new Set();
 let _sessionURL = defaultSessionURL();
 
 export const App = {
+    get libName() { return globalThis.__MULTISYNQ__ ? "Multisynq" : "Croquet"; },
+
     get sessionURL() { return _sessionURL; },
     set sessionURL(url) { _sessionURL = url; displayQRCodeIfNeeded(); },
     root: null, // root for messages, the sync spinner, and the info dock (defaults to document.body)
@@ -876,17 +878,21 @@ export const App = {
             url.searchParams.set(key, fragment);
         }
         // change page url if needed
-        const href = url.toString("");
-        if (window.location.href !== href) {
-            window.history.replaceState({}, "", href);
-            App.sessionURL = href;
+        App.sessionURL = url.href;
+        if (window.location.href !== url.href) {
+            try {
+                window.history.replaceState({}, "", url.href);
+            } catch (ex) {
+                App.showMessage(`Setting address bar to ${url.href}`, { only: "once" });
+                App.showMessage(`Failed to change address bar: ${ex.message}`, { level: "warning", only: "once" });
+            }
         }
-        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.autoSession: "${fragment}"`);
+        if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.autoSession: "${fragment}"`);
         // return Promise for future-proofing
         const retVal = Promise.resolve(fragment);
         // warn about using it directly
         retVal[Symbol.toPrimitive] = () => {
-            console.warn(`Deprecated: Croquet.App.autoSession() return value used directly. It returns a promise now!`);
+            console.warn(`Deprecated: ${App.libName}.App.autoSession() return value used directly. It returns a promise now!`);
             return fragment;
         };
         return retVal;
@@ -931,17 +937,22 @@ export const App = {
             // but scrub it from address bar
             if (scrub) url.hash = keyless ? '' : hash;
         }
-        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.sessionUrl: ${App.sessionURL}`);
+        if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.sessionUrl: ${App.sessionURL}`);
         // change url bar if needed
-        if (window.location.href !== url.href) window.history.replaceState({}, "", url.href);
+        if (window.location.href !== url.href) try {
+            window.history.replaceState({}, "", url.href);
+        } catch (ex) {
+            App.showMessage(`Setting address bar to ${url.href}`, { only: "once" });
+            App.showMessage(`Failed to change address bar: ${ex.message}`, { level: "warning", only: "once" });
+        }
         // decode % entities if possible
         if (password) try { password = decodeURIComponent(password); } catch (ex) { /* ignore */ }
-        if (urlOptions.has("debug", "session")) console.log(`Croquet.App.autoPassword: "${password}"`);
+        if (urlOptions.has("debug", "session")) console.log(`${App.libName}.App.autoPassword: "${password}"`);
         // return Promise for future-proofing
         const retVal = Promise.resolve(password);
         // warn about using it directly
         retVal[Symbol.toPrimitive] = () => {
-            console.warn(`Deprecated: Croquet.App.autoPassword() return value used directly. It returns a promise now!`);
+            console.warn(`Deprecated: ${App.libName}.App.autoPassword() return value used directly. It returns a promise now!`);
             return password;
         };
         return retVal;

@@ -11,6 +11,8 @@
         "globalThis": false
     },
     "rules": {
+        "no-shadow": "warn",
+        "semi": ["warn", "always", { "omitLastInOneLineBlock": true}],
         "import/extensions": ["warn", "never"],
         "import/prefer-default-export": "off",
         "import/no-cycle": "off",

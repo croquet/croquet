@@ -35,10 +35,6 @@ const PROTOCOL_VERSION = 1;
 export const CROQUET_VERSION = croquet_build_process.env.CROQUET_VERSION || "<unknown>";
 const NODE = croquet_build_process.env.CROQUET_PLATFORM === "node";
 
-// Node and codepen cannot deal with styled console output
-if (NODE || window.location.hostname.match(/co?de?pe?n\.io/)) console.log("Croquet " + CROQUET_VERSION);
-else console.log("%cCroquet%c %c" + CROQUET_VERSION, "color:#F0493E", "color:inherit", `color:${CROQUET_VERSION.includes('+') ? "#909" : "inherit"}`);
-
 // use dev reflectors for pre-release SDKs, unless dev=false given
 // (only needed for periods when code changes below require dev reflectors,
 // comment out once deployed to production reflectors)
@@ -49,9 +45,6 @@ else console.log("%cCroquet%c %c" + CROQUET_VERSION, "color:#F0493E", "color:inh
 // ...unless overridden by a "backend" url option
 // ...unless overridden by a "reflector=<url|region>" url option, which sets the specified url or region
 
-const appOnCroquetIo = !NODE && !!window.location.hostname.match(/^(.*\.)?croquet\.io$/i);
-const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith("/dev/");
-
 const CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/";
 const DEV_CLOUDFLARE_REFLECTOR = "wss://croquet.network/reflector/dev/";
 
@@ -61,12 +54,20 @@ export const OLD_DATA_SERVER = OLD_DOWNLOAD_SERVER;
 
 let DEBUG = null;
 
+function logVersion() {
+    if (NODE) console.log("Croquet " + CROQUET_VERSION);
+    else console.log("%cCroquet%c %c" + CROQUET_VERSION, "color:#F0493E", "color:inherit", `color:${CROQUET_VERSION.includes('+') ? "#909" : "inherit"}`);
+}
+
 function initOptions() {
+    if (!globalThis.__MULTISYNQ__) logVersion();
     // to capture whatever was passed to the latest Session.join({debug:...})
     // call we simply redo this every time establishSession() is called
     // TODO: turn this into a reasonable API
     // enable some opts by default via dev flag or being on localhost-equivalent
-    const devOrLocal = urlOptions.dev || (urlOptions.dev !== false && "localhost");
+    const appOnCroquetIo = !NODE && window.location.hostname.match(/^(.*\.)?croquet\.io$/i);
+    const appOnCroquetIoDev = appOnCroquetIo && window.location.pathname.startsWith("/dev/");
+    // const devOrLocal = urlOptions.dev || (urlOptions.dev !== false && "localhost");
     const devOrCroquetIoDev = urlOptions.dev || (urlOptions.dev !== false && appOnCroquetIoDev);
     DEBUG = {
         messages: urlOptions.has("debug", "messages", false),               // received messages
@@ -77,11 +78,11 @@ function initOptions() {
         pong: urlOptions.has("debug", "pong", false),                       // received PONGs
         snapshot: urlOptions.has("debug", "snapshot", false),               // snapshotting, uploading etc
         session: urlOptions.has("debug", "session", false),                 // session logging
-        initsnapshot: urlOptions.has("debug", "initsnapshot", devOrLocal),  // check snapshotting after initFn
+        initsnapshot: urlOptions.has("debug", "initsnapshot", true),        // check snapshotting after initFn
         reflector: urlOptions.has("debug", "reflector", devOrCroquetIoDev), // use dev reflector
         offline: urlOptions.has("debug", "offline", false),                 // short-circuit all requests
     };
-    if (DEBUG.offline) App.showMessage("Croquet: offline mode enabled, no multiuser", { level: "warning"});
+    if (DEBUG.offline) App.showMessage(`${App.libName}: offline mode enabled, no multiuser`, { level: "warning"});
     if (urlOptions.box) {
         let url = new URL(urlOptions.box, window.location).href;
         if (!url.endsWith("/")) url += "/";
@@ -97,10 +98,10 @@ function setDebug(options={}) {
     }
     for (const [key, value] of Object.entries(options)) {
         if (key in DEBUG) DEBUG[key] = value;
-        else App.showMessage(`Croquet: unknown debug option "${key}"`, { level: "warning", only: "once" });
+        else App.showMessage(`${App.libName}: unknown debug option "${key}"`, { level: "warning", only: "once" });
     }
     return DEBUG;
-};
+}
 
 /*
 function isLocalUrl(hostname) {
@@ -177,7 +178,7 @@ function initDEPIN(defaultToDEPIN) {
         DEPIN_API = DEPIN_API.replace(/^http(s):/, 'ws$1:');
         if (!DEPIN_API.startsWith('ws')) DEPIN_API = (!NODE && window.location.protocol === 'https:' ? 'wss://' : 'ws://') + DEPIN_API;
         REFL_OR_SYNCH = "synchronizer";
-        console.log(`DEPIN_API=${DEPIN_API}`);
+        if (DEBUG.session) console.log(`DEPIN_API=${DEPIN_API}`);
     } else {
         DEPIN = false;
     }
@@ -482,7 +483,7 @@ export default class Controller {
         const { id, codeHash, computedCodeHash } = await hashSessionAndCode(persistentId, developerId, sessionParams, hashOverride, CROQUET_VERSION);
         if (!this.tove) this.tove = await this.encrypt(id);
         if (viewData && !this.viewDataEncrypted) this.viewDataEncrypted = await this.encryptPayload(viewData);
-        if (DEBUG.session) console.log(`Croquet session "${name}":
+        if (DEBUG.session) console.log(`${App.libName} session "${name}":
         sessionId=${id}${appId ? `
         persistentId=${persistentId}` : ""}
         versionId=${codeHash === computedCodeHash ? codeHash : `${codeHash} (specified in hashOverride)
@@ -531,14 +532,14 @@ export default class Controller {
             apiKey: "none",
             signServer: "none",
             reflector: "none",
-        }
+        };
 
         if (urlOptions.box || urlOptions.reflector) { // box is croquet-in-a-box, see session.js
             return {
                 apiKey: "none",
                 signServer: "none",
                 reflector: urlOptions.reflector,
-            }
+            };
         }
 
         const keys = {};
@@ -559,7 +560,7 @@ export default class Controller {
         if (!key) throw Error(`No ${DEPIN ? "Multisynq" : "Croquet"} API key provided`);
 
         const apiKey = key.key;
-        let backend = urlOptions.backend || key.backend;
+        const backend = urlOptions.backend || key.backend;
         const overridden = urlOptions.reflector?.includes("/");
         if (backend === "none") {
             return {
@@ -1504,7 +1505,7 @@ export default class Controller {
                 delete this.fastForwardHandler;
                 if (success) {
                     if (DEBUG.session) console.log(this.id, `fast-forwarded to ${Math.round(this.vm.time)}`);
-                    if (this.vm.diverged) App.showMessage("Croquet: session had diverged. Try CROQUETVM.debugDiverged()", { level: "warning", only: "once" });
+                    if (this.vm.diverged) App.showMessage(`${App.libName}: session had diverged. Try CROQUETVM.debugDiverged()`, { level: "warning", only: "once" });
                     // iff fast-forward was successful, trigger return from establishSession().
                     // otherwise, in due course we'll reconnect and try again.  it can keep waiting.
                     this.sessionSpec.sessionJoined();
@@ -2818,7 +2819,9 @@ class Connection {
             // the onclose handling directly.
             this.socket.onclose = null;
             try {
-                this.socket.close(code, message); // might work, might not
+                let reason = message;
+                if (reason && reason.length > 123) reason = reason.slice(0, 123);
+                this.socket.close(code, reason); // might work, might not
             } catch (e) { console.error(`Error in socket.close(${code}, ${JSON.stringify(message)}):`, e); }
         }
         // whether there was a socket or not, reset the connection so we can try again

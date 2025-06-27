@@ -27,8 +27,6 @@ function inject_process() {
             if (id === CUSTOM_MODULE_ID) {
                 return CUSTOM_MODULE_ID;
             }
-            // in the browser, also pretend we have a "crypto" module which some node packages try to load
-            if (!is_node && id === "crypto") return "crypto";
         },
         load(id) {
             // create source code of our custom module
@@ -43,8 +41,6 @@ export const env = ${JSON.stringify(Object.keys(process.env).filter(key => key.m
                 const importRegenerator = `import "regenerator-runtime/runtime.js";\n`;
                 return importRegenerator + exportEnv;
             }
-            // in the browser, also generate an empty "crypto" module which some node packages try to load
-            if (!is_node && id === "crypto") return "";
         },
         // patch other modules
         transform(code, id) {
@@ -86,9 +82,6 @@ function fixups() {
                 { bad: 'regeneratorRuntime=', good: 'globalThis.regeneratorRuntime=' },
                 // work around stupid check in FastPriorityQueue
                 { bad: 'require.main', good: 'undefined' },
-                // remove unused global require call in seedrandom
-                { bad: replaceBlocker + 'require("crypto")', good: 'undefined'},
-                { bad: replaceBlocker + "require('crypto')", good: 'undefined'},
             ]);
         }
     };
@@ -111,7 +104,7 @@ const git_bumped = git_message.endsWith(pkg.version);                           
 const git_clean = !execSync("git status --porcelain -- " + deps.join(" ")).toString().trim(); // all deps are committed
 
 const public_build = !is_dev_build && !pkg.version.includes('-');
-const prerelease = !is_dev_build && (git_branch === "main" || git_branch === "depin") && git_bumped && git_clean;
+const prerelease = !is_dev_build && (git_branch === "main" || git_branch === "dev") && git_bumped && git_clean;
 const bundle_date = public_build || prerelease ? git_date : moment().toISOString(true);
 
 if (public_build && (git_branch !== "main" || !git_clean)) throw Error(`Public build ${pkg.version} but ${!git_clean ? "git is not clean" : `not on main branch)`}`);
@@ -177,8 +170,8 @@ const config = () => ({
     // in script tag, we want to bundle all dependencies
     // otherwise, we only bundle our own code
     external: target === 'pub' ? [] // no external
-        : target === 'cjs' ? [...Object.keys(pkg.dependencies), "crypto"]
-        : [...Object.keys(pkg.dependencies), "node-datachannel/polyfill",
+        : target === 'cjs' ? Object.keys(pkg.dependencies)
+        : /* node */ [...Object.keys(pkg.dependencies), "node-datachannel/polyfill",
             'node:fs', 'node:http', 'node:https', 'node:path', 'node:stream',
             'node:url', 'node:util', 'node:worker_threads', 'node:zlib'
         ], // force polyfill to external

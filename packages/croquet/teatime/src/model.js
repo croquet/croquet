@@ -79,7 +79,7 @@ class Model {
         if (!hasID(this)) throw Error(`Model class "${this.name}" not registered`);
         const ModelClass = this;
         const model = this.createNoInit();
-        // register root model before calling its init() so
+        // make root model well-known before calling its init() so
         // that other models created in init() can look it up
         const beModelRoot = !this.wellKnownModel("modelRoot");
         if (beModelRoot) {
@@ -361,7 +361,7 @@ class Model {
     }
 
     constructor(secret) {
-        if (secret !== SECRET) throw Error(`You must create Croquet Models using create() not "new"!`);
+        if (secret !== SECRET) throw Error(`You must create ${App.libName} Models using create() not "new"!`);
     }
 
     /**
