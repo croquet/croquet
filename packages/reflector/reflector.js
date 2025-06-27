@@ -106,7 +106,7 @@ const SYNCNAME = parseArgWithValue(ARGS.SYNCNAME) || getRandomString(8) + getRan
 
 const FILE_STORAGE = process.argv.includes(ARGS.FILE_STORAGE); // use local fs-based API to store session data.
 
-const LOCAL_FILES_PATH = process.env.FILES_ROOT_PATH;
+const LOCAL_FILES_PATH = process.env.FILES_MOUNT_PATH;
 
 const GCP_PROJECT = FILE_STORAGE ? "local" : process.env.GCP_PROJECT; // only set if we're running on Google Cloud
 

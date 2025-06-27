@@ -1,8 +1,9 @@
 #!/bin/bash
-# usage: ./build.sh [port] [web-root-path] [files-root-path]
+# usage: ./build.sh [port] [web-root-path] [files-root-path] [files-mount-path]
 #   port:          port to listen on (default: 8888)
 #   web-root-path: path to website root (default: ./webroot)
 #   files-root-path: path to files root (default: ./_files)
+#   files-mount-path: the path to use from within the containers. See also docker-compose.yml (default: /var/tmp/croquet-in-a-box/files)
 
 cd $(dirname "$0")
 TOP=../..
@@ -11,6 +12,7 @@ TOP=../..
 export HOST_PORT=${1:-8888}
 export WEB_ROOT_PATH=${2:-./webroot}
 export FILES_ROOT_PATH=${3:-./_files}
+export FILES_MOUNT_PATH=${4:-/var/tmp/croquet-in-a-box/files}
 export REFLECTOR_LABEL=`hostname`
 
 # used in Dockerfile below
@@ -49,6 +51,7 @@ RUN npm ci \
     && chmod +x reflector.sh
 ENV LOG_LEVEL=info
 ENV CLUSTER_LABEL=somewhere
+ENV FILES_MOUNT_PATH=$FILES_MOUNT_PATH
 EXPOSE 9090
 CMD [ "./reflector.sh" ]
 EOF
