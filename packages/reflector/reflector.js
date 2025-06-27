@@ -106,6 +106,8 @@ const SYNCNAME = parseArgWithValue(ARGS.SYNCNAME) || getRandomString(8) + getRan
 
 const FILE_STORAGE = process.argv.includes(ARGS.FILE_STORAGE); // use local fs-based API to store session data.
 
+const LOCAL_FILES_PATH = process.env.FILES_ROOT_PATH;
+
 const GCP_PROJECT = FILE_STORAGE ? "local" : process.env.GCP_PROJECT; // only set if we're running on Google Cloud
 
 const NO_STORAGE = !!DEPIN || process.argv.includes(ARGS.NO_STORAGE); // no GCP bucket access (true on DePIN, because the session DO receives state)
@@ -278,14 +280,16 @@ let SECRET;
 const storage = new Storage();
 
 const SESSION_BUCKET = FILE_STORAGE ?
-      new LocalDirectory(GCP_PROJECT) :
+      new LocalDirectory(LOCAL_FILES_PATH) :
       (NO_STORAGE ? null
        : GCP_PROJECT === 'croquet-proj' ? storage.bucket(`croquet-sessions-v1`)
        : storage.bucket(`${GCP_PROJECT}-sessions-v1`));
 
-const DISPATCHER_BUCKET = NO_DISPATCHER ? null
-                            : GCP_PROJECT === 'croquet-proj' ? storage.bucket(`croquet-reflectors-v1`)
-                            : storage.bucket(`${GCP_PROJECT}-reflectors-v1`);
+const DISPATCHER_BUCKET = FILE_STORAGE ?
+      new LocalDirectory(LOCAL_FILES_PATH + "/dispatcher") : 
+      (NO_DISPATCHER ? null
+       : GCP_PROJECT === 'croquet-proj' ? storage.bucket(`croquet-reflectors-v1`)
+       : storage.bucket(`${GCP_PROJECT}-reflectors-v1`));
 
 // pointer to latest persistent data is stored in user buckets
 // direct bucket access (instead of going via load-balancer as clients do)
@@ -299,7 +303,7 @@ const FILE_BUCKETS = {
 if (!FILE_STORAGE) {
     FILE_BUCKETS.default = FILE_BUCKETS.us;
 } else {
-    FILE_BUCKETS.default = new LocalDirectory("local-files");
+    FILE_BUCKETS.default = new LocalDirectory(LOCAL_FILES_PATH + "/reflector");
     FILE_BUCKETS.eu = FILE_BUCKETS.default;
     FILE_BUCKETS.jp = FILE_BUCKETS.default;
     FILE_BUCKETS.us = FILE_BUCKETS.default;

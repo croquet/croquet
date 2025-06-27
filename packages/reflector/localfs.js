@@ -1,5 +1,5 @@
-import * as fs from "node:fs/promises";
-import path from "node:path";
+const fs = require("node:fs/promises");
+const path = require("node:path");
 
 class LocalFileHandle {
     constructor(path, mode) {
@@ -34,10 +34,12 @@ class LocalFileHandle {
 
     async write(str) {
         try {
-            await this.handle.write(str);
+            const result = await this.handle.write(str);
+            return result;
         } catch (err) {
             errored = err;
         }
+        return null;
     }
 
     async end() {
@@ -99,6 +101,7 @@ class LocalFileHandle {
 
 class LocalFile {
     constructor(path) {
+            console.log("local file", path)
         this.path = path;
         this.handle = null;
     }
@@ -108,14 +111,19 @@ class LocalFile {
         await this.handle.open();
         return this.handle;
     }
+
     async createReadStream(options = {}) {
         this.handle = new LocalFileHandle(this.path, "r");
         await this.handle.open();
         return this.handle;
     }
+
+    async delete() {
+        return fs.unlink(this.path);
+    }
 }
 
-export class LocalDirectory {
+class LocalDirectory {
     constructor(path) {
         this.path = path;
     }
@@ -124,3 +132,5 @@ export class LocalDirectory {
         return new LocalFile(path.resolve(this.path, filename));
     }
 }
+
+exports.LocalDirectory = LocalDirectory;

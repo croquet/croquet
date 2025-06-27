@@ -15,7 +15,7 @@ export REFLECTOR_LABEL=`hostname`
 
 # used in Dockerfile below
 REFLECTOR_PATH=$TOP/packages/reflector
-REFLECTOR_ARGS="--storage=none --standalone --no-loglatency --no-logtime"
+REFLECTOR_ARGS="--storage=file --standalone --no-loglatency --no-logtime"
 
 # figure out IP address, or use localhost
 # this mighht be specific to MacOS, will need to do check on Linux/Windows
@@ -40,7 +40,7 @@ rm -rf build/node_modules
 cat > build/Dockerfile <<-EOF
 FROM node:18-alpine
 WORKDIR /usr/src/reflector
-COPY package*.json reflector.js .pino-prettyrc ./
+COPY package*.json reflector.js localfs.js .pino-prettyrc ./
 RUN apk add --update python3 make g++\
    && rm -rf /var/cache/apk/*
 RUN npm ci \
