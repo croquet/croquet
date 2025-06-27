@@ -8,6 +8,8 @@
 cd $(dirname "$0")
 TOP=../..
 
+export REFLECTOR_USER=1000:1000
+
 # these are used inside docker-compose.yml
 export HOST_PORT=${1:-8888}
 export WEB_ROOT_PATH=${2:-./webroot}

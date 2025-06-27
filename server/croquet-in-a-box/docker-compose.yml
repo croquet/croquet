@@ -7,6 +7,7 @@ services:
     environment:
       - CLUSTER_LABEL=$REFLECTOR_LABEL
     restart: unless-stopped
+    user: $REFLECTOR_USER
     volumes:
       - $FILES_ROOT_PATH:/var/tmp/croquet-in-a-box/files
     networks:
