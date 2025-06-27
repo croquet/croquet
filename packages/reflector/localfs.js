@@ -101,7 +101,6 @@ class LocalFileHandle {
 
 class LocalFile {
     constructor(path) {
-            console.log("local file", path)
         this.path = path;
         this.handle = null;
     }

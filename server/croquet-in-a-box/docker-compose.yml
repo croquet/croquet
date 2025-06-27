@@ -6,9 +6,9 @@ services:
     container_name: reflector
     environment:
       - CLUSTER_LABEL=$REFLECTOR_LABEL
+    restart: unless-stopped
     volumes:
       - $FILES_ROOT_PATH:/var/tmp/croquet-in-a-box/files
-    restart: unless-stopped
     networks:
       - croquet-network
 
