@@ -14,6 +14,9 @@ case "$MODE" in
     down)
         CMD="docker compose down"
         ;;
+    logs)
+        CMD="docker compose logs"
+        ;;
     *)
         # run reflector and nginx as defined in docker-compose.yml. it is detached with -d option.
         CMD="docker compose up -d"
