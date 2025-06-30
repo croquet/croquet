@@ -1470,7 +1470,10 @@ async function startServerForDePIN() {
                     server.clients.set(globalClientId, client);
                     setUpClientHandlers(client); // adds 'message', 'close', 'error'
                     registerClientInSession(client, sessionId); // includes setting up logger
-                    client.logger.notice({ event: "start" }, `opened connection for client ${globalClientId} at ${peerConnection.mq_clientIpHash} after ${client.iceMS}ms with label "${label}"`);
+                    if (client.sessionId) {
+                        // client was successfully registered with the session
+                        client.logger.notice({ event: "start" }, `opened connection for client ${globalClientId} at ${peerConnection.mq_clientIpHash} after ${client.iceMS}ms with label "${label}"`);
+                    }
                     dataChannel.onMessage(msg => {
                         if (msg.startsWith('!pong')) {
                             const time = Number(msg.split('@')[1]);
@@ -1981,13 +1984,16 @@ async function startServerForWebSockets() {
         setUpClientHandlers(client);
         registerClientInSession(client, sessionId);
 
-        // connection log sink filters on scope="connection" and event="start|join|end"
-        const forwarded = `via ${req.headers['x-croquet-dispatcher']} (${(req.headers['x-forwarded-for'] || '').split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
-        client.logger.notice({ event: "start", token, url: req.url }, `opened connection ${version} ${forwarded || ''}${req.headers['x-location'] || ''}`);
+        // only continue if client was successfully registered in session
+        if (client.sessionId) {
+            // connection log sink filters on scope="connection" and event="start|join|end"
+            const forwarded = `via ${req.headers['x-croquet-dispatcher']} (${(req.headers['x-forwarded-for'] || '').split(/\s*,\s*/).map(a => a.replace(/^::ffff:/, '')).join(', ')}) `;
+            client.logger.notice({ event: "start", token, url: req.url }, `opened connection ${version} ${forwarded || ''}${req.headers['x-location'] || ''}`);
 
-        // start validating token now (awaited in JOIN)
-        if (VERIFY_TOKEN && token) {
-            client.tokenPromise = verifyToken(token);
+            // start validating token now (awaited in JOIN)
+            if (VERIFY_TOKEN && token) {
+                client.tokenPromise = verifyToken(token);
+            }
         }
     });
 
@@ -3847,8 +3853,12 @@ function registerSession(sessionId) {
 }
 
 function registerClientInSession(client, sessionId) {
-    // the client has been successfully set up with a connection (which takes more
-    // steps in DePIN than otherwise).  now sign it up with the session it belongs to.
+    // the client has been successfully set up with a connection (which takes more steps
+    // in DePIN than otherwise).  now try to sign it up with the session it belongs to.
+
+    // set up a stand-in client logger in case the session association fails
+    client.logger = empty_logger.child({...global_logger.bindings(), ...client.meta});
+
     let session = ALL_SESSIONS.get(sessionId);
     if (session) {
         switch (session.stage) {
@@ -3884,6 +3894,8 @@ function registerClientInSession(client, sessionId) {
     }
 
     prometheusConnectionGauge.inc(); // connection accepted
+
+    // replace client logger now that we know we have the session metadata
     client.logger = empty_logger.child({...session.logger.bindings(), ...client.meta});
 
     STATS.USERS = Math.max(STATS.USERS, server.clients.size);
