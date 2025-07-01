@@ -7,13 +7,21 @@ services:
     environment:
       - CLUSTER_LABEL=$REFLECTOR_LABEL
     restart: unless-stopped
+    user: $REFLECTOR_USER
     volumes:
       - $FILES_ROOT_PATH:/var/tmp/croquet-in-a-box/files
     networks:
       - croquet-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
 
   nginx:
-    image: nginx:mainline-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.reflector-nginx
     container_name: web-and-files
     restart: unless-stopped
     ports:

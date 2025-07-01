@@ -1,0 +1,4 @@
+FROM nginx:mainline-alpine
+
+RUN addgroup -g 120 reflector && adduser -D -G reflector -u 112 reflector
+
