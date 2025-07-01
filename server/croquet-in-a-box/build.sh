@@ -8,7 +8,7 @@
 cd $(dirname "$0")
 TOP=../..
 
-export REFLECTOR_USER=1000:1000
+export REFLECTOR_USER=reflector:reflector
 
 # these are used inside docker-compose.yml
 export HOST_PORT=${1:-8888}
@@ -35,6 +35,7 @@ RUN npm ci \
     && echo "#!/bin/sh" > reflector.sh \
     && echo "node reflector.js $REFLECTOR_ARGS | npx pino-pretty" >> reflector.sh \
     && chmod +x reflector.sh
+RUN addgroup -g 120 reflector && adduser -D -G reflector -u 112 reflector
 ENV LOG_LEVEL=info
 ENV CLUSTER_LABEL=somewhere
 ENV FILES_MOUNT_PATH=$FILES_MOUNT_PATH
@@ -43,4 +44,4 @@ CMD [ "./reflector.sh" ]
 EOF
 
 # run reflector and nginx as defined in docker-compose.yml
-docker compose build reflector
+docker compose build

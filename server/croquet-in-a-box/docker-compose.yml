@@ -19,7 +19,9 @@ services:
         max-file: "7"
 
   nginx:
-    image: nginx:mainline-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.reflector-nginx
     container_name: web-and-files
     restart: unless-stopped
     ports:
