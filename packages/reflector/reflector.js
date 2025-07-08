@@ -3627,7 +3627,7 @@ async function deregisterSession(id, detail) {
         else session.logger.warn({event: "deregister-failed", err}, `failed to deregister. ${err.code}: ${err.message}`);
     }
 
-    setTimeout(() => finalDelete, LATE_DISPATCH_DELAY);
+    setTimeout(finalDelete, LATE_DISPATCH_DELAY);
 }
 
 function setUpClientHandlers(client) {
