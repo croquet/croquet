@@ -25,7 +25,7 @@ data.
 Croquet provides a mechanism to support this. This mechanism allows you
 to specify what data to save as the essential part of the application
 data from the old version of application, and load it into a new
-version of application. In addition to the `sessionId`` described above,
+version of application. In addition to the `sessionId` described above,
 Croquet uses a derived ID called `persistentId`, which is a
 combination of `appId` and the session `name`, to identify an
 application session independent of code changes.
