@@ -2121,6 +2121,7 @@ class VMReader {
         this.vm = vm;
         this.refs = new Map();
         this.todo = [];        // we use breadth-first deferred reading to limit stack depth
+        this.forceNoDefer = false;
         this.unresolved = [];  // some refs can only be resolved in 2nd pass
         this.postprocess = []; // 3rd pass fills Sets and Maps that had unresolved refs
         this.readers = new Map();
@@ -2353,6 +2354,10 @@ class VMReader {
     readAsClass(classId, state, path) {
         let temp = {};
         const unresolved = new Map();
+
+        const prevNoDefer = this.forceNoDefer;
+        this.forceNoDefer = true; // nested values *must* be resolved before reader is called
+
         if ("$value" in state) temp = this.read(state.$value, path, false);
         else for (const [key, value] of Object.entries(state)) {
             if (key[0] === '$') continue;
@@ -2367,6 +2372,9 @@ class VMReader {
                 this.readInto(temp, key, value, path, false);
             }
         }
+
+        this.forceNoDefer = prevNoDefer;
+
         const reader = this.readers.get(classId);
         const object = reader(temp, path);
         if (!object && classId !== "Undefined" && classId !== "BigInt" && classId !== "NaN" && classId !== "NegZero") console.warn(`Reading "${classId}" returned ${object} at ${path}`);
@@ -2400,7 +2408,7 @@ class VMReader {
 
     readInto(object, key, value, path, defer=true) {
         if (this.readRef(object, key, value, path)) return;
-        if (defer && typeof value === "object") {
+        if (defer && !this.forceNoDefer && typeof value === "object") {
             this.todo.push({object, key, value, path});
             return;
         }
