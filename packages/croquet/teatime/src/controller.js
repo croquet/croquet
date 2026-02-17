@@ -84,7 +84,7 @@ function initOptions() {
     };
     if (DEBUG.offline) App.showMessage(`${App.libName}: offline mode enabled, no multiuser`, { level: "warning"});
     if (urlOptions.box) {
-        let url = new URL(urlOptions.box, window.location).href;
+        let url = new URL(urlOptions.box, NODE ? undefined : window.location).href;
         if (!url.endsWith("/")) url += "/";
         urlOptions.reflector = url + "reflector";
         urlOptions.files = url + "files";
@@ -892,7 +892,7 @@ export default class Controller {
     uploadServer(apiKeysWithBackend) {
         // allow overrides (should also allow override via backend?)
         if (typeof urlOptions.files === "string") {
-            let url = new URL(urlOptions.files, window.location).href;
+            let url = new URL(urlOptions.files, NODE ? undefined : window.location).href;
             if (url.endsWith('/')) url = url.slice(0, -1);
             return { url, apiKey: null };
         }
