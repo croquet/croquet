@@ -6,6 +6,8 @@ These are detailed internal changes. The user-facing change log is at the end of
 
 # latest @dev
 
+* 2.0.5-1 fix deserialization of nested props in custom classes; ensure box & files JOIN parms can be used on node.js
+
 # 2025-06-09 2.0.4
 - patch unused require("crypto") out of the random number generator
 
