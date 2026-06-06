@@ -14,7 +14,7 @@
   },
   "homepage": "https://github.com/croquet/croquet#readme",
   "scripts": {
-    "start": "node reflector.js --standalone --storage=none --no-loglatency | pino-pretty -Sctlm message",
+    "start": "node reflector.js --standalone --storage=file --no-loglatency | pino-pretty -Sctlm message",
     "test": "tape test.js | tap-nirvana"
   },
   "dependencies": {

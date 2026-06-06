@@ -1,0 +1,45 @@
+services:
+  reflector:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        LABEL: ${LABEL:-files-current}
+#    image: ${REGISTRY_NAMESPACE:-croquet}/reflector:${LABEL:-files-latest}
+    container_name: reflector
+    restart: unless-stopped
+    networks:
+      - croquet
+#    environment:
+#      - CLUSTER_LABEL=$REFLECTOR_LABEL
+    volumes:
+        - croquet-files:/var/croquet-files:rw
+    healthcheck:
+        test: ['CMD', 'wget', '--spider', 'http://reflector:9090/?HEALTHCHECK']
+        interval: 23s   # not multiple of 2 nor 5
+        timeout: 20s
+        retries: 4
+        start_period: 1s   # > min startup time
+  web:
+      image: nginx:1.30-alpine3.23
+      container_name: web
+      restart: unless-stopped
+      networks:
+          - croquet
+      ports:
+          - '80:80'
+          - '443:443'
+      volumes:
+          - ./nginx-conf:/etc/nginx/conf.d:ro
+#          - /var/www:/var/www/:ro
+          - /etc/letsencrypt:/etc/letsencrypt:ro
+          - /var/log/nginx:/var/log/nginx:rw
+          - croquet-files:/var/croquet-files:rw
+      command: |
+          /bin/sh -c "chown -R nginx:nginx /var/croquet-files && exec nginx -g 'daemon off;'"
+      healthcheck:
+          test: ['CMD', 'curl', '-f', 'http://web/favicon.ico']
+          interval: 15s
+          timeout: 10s
+          retries: 3
+          start_period: 15s
