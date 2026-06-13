@@ -4,7 +4,7 @@ This is the server that keeps Croquet clients (which are using the `@croquet/cro
 
 It does so by sending out a timing beacon ("ticks") interleaved with time-stamped user input events ("messages). Since every client executes deterministically from the same initial state, only depending on what it receives from the reflector, and every client receives the exact same events, all clients evolve their state independently but absolutely identical.
 
-Clients upload snapshots of their state to a file server from time to time. The reflector keeps track of the snapshos. When a new client joints, the reflector sends it a SYNC message containing the latest snapshot URL, and a list of messages received since that snapshot was taken. The client fast-forwards through that list and then is in the same state as every other client.
+Clients upload snapshots of their state to a file server from time to time. The reflector keeps track of the snapshots. When a new client joints, the reflector sends it a SYNC message containing the latest snapshot URL, and a list of messages received since that snapshot was taken. The client fast-forwards through that list and then is in the same state as every other client.
 
 ## Running locally
 
@@ -25,6 +25,19 @@ This will open a web socket server on `ws://localhost:9090/`. To route a client 
 ## Deploying the reflector to a stand-alone environment
 
 The easiest way to get a fully working installation is [Croquet-in-a-Box](../../server/croquet-in-a-box/). It combines a reflector with a web server and file server (both using `nginx`) in a single package.
+
+For a production-ready deployment
+1. Replace `example.com` in the NginX config files in this directory with your own domain name.
+2. [Optional] Build the reflector image, push it to a container registry, and edit `docker-compose.yml` to use it.
+3. [Optional] Configure NginX as a static web server by adding configuration files to the `nginx-conf` directory.
+4. Obtain a TLS certificate for all the hosts served by NginX from Let's Encrypt, either manually or by writing a docker-compose file based on the one here.
+5. Run `docker-compose up -d` to start the reflector and web server.
+6. To the URL for your Croquet application, add `?reflector=wss%3A%2F%2Freflector.example.com&files=https%3A%2F%2Freflector.example.com%2Ffiles`
+
+To delete the saved snapshots, run
+```
+docker compose down web reflector && docker volume rm web_croquet-files && docker compose up reflector web
+```
 
 # Miscellaneous
 
