@@ -769,12 +769,12 @@ declare module "@croquet/croquet" {
          * @return {this}
          * @public
          */
-        subscribe(
+        subscribe<T>(
             scope: string,
             eventSpec:
                 | string
                 | { event: string; handling: "queued" | "oncePerFrame" | "immediate" },
-            callback: (e: any) => void,
+            callback: SubscriptionHandler<T>,
         ): void;
 
         /**
