@@ -2116,7 +2116,7 @@ process.on('unhandledRejection', (err, _promise) => {
         event: "unhandled-rejection",
         err,
     }, `Unhandled rejection: ${err.message}`);
-    handleTerm();
+    // a single failed request must not take down every session on this reflector
 });
 
 function openToClients() {
@@ -2251,12 +2251,30 @@ function savableKeys(island) {
     return Object.keys(island).filter(key => !(key in nonSavable));
 }
 
+// session id, appId, persistentId and developerId become parts of file paths in file storage
+const SAFE_PATH_SEGMENT = /^(?!\.+$)[A-Za-z0-9._-]{1,128}$/;
+const isSafeOptionalSegment = value => value === undefined || value === null || (typeof value === "string" && SAFE_PATH_SEGMENT.test(value));
+
+function isValidJoin(id, args) {
+    return SAFE_PATH_SEGMENT.test(id)
+        && typeof args.name === "string"
+        && typeof args.ticks === "object" && args.ticks !== null
+        && isSafeOptionalSegment(args.appId)
+        && isSafeOptionalSegment(args.persistentId)
+        && isSafeOptionalSegment(args.developerId);
+}
+
 /** A new island controller is joining
  * @param {Client} client - we received from this client
  * @param {{name: String, version: Number, appId?: string, persistentId?: string, user: string}} args
  */
 async function JOIN(client, args) {
-    if (typeof args === "number" || !args.version) {
+    if (typeof args === "number" || !args?.version) {
+        client.safeClose(...REASON.BAD_PROTOCOL);
+        return;
+    }
+    if (!isValidJoin(client.sessionId, args)) {
+        client.logger.warn({ event: "reject-join" }, "rejecting JOIN; invalid arguments");
         client.safeClose(...REASON.BAD_PROTOCOL);
         return;
     }
@@ -3641,7 +3659,10 @@ function setUpClientHandlers(client) {
             switch (action) {
                 case 'JOIN': {
                     client.joinedSession = true;
-                    JOIN(client, args);
+                    JOIN(client, args).catch(err => {
+                        client.logger.error({ event: "join-failed", err }, `JOIN failed: ${err.message}`);
+                        client.safeClose(...REASON.UNKNOWN_ERROR);
+                    });
                     break;
                 }
                 case 'SEND': {
